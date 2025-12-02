@@ -12,7 +12,7 @@ try:
     from apikey import api_data as GEN_AI_API_KEY
 except ImportError:
     print("Error: apikey.py not found or api_data not defined. Using placeholder for API key.")
-    GEN_AI_API_KEY = "AIzaSyB_H-_FNNVw-Oo10NyPJoOeTpXoXOPRRmY" # Placeholder, replace with actual key
+    GEN_AI_API_KEY = "" # Placeholder, replace with actual key
 
 # Configure Gemini AI
 gemini_configured_successfully = False
