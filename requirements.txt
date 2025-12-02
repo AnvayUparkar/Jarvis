@@ -1,0 +1,16 @@
+flask
+requests
+speechrecognition
+pygame
+google-auth
+google-auth-oauthlib
+google-api-python-client
+pyttsx3
+gTTS
+pywhatkit
+spotipy
+SpeechRecognition
+setuptools<81
+subprocess
+pvporcupine
+pyaudio

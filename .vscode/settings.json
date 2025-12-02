@@ -1,0 +1,5 @@
+{
+    "postman.settings.dotenv-detection-notification-visibility": false,
+    "editor.unicodeHighlight.nonBasicASCII": "inUntrustedWorkspace",
+    "python.analysis.typeCheckingMode": "off"
+}

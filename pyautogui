@@ -1,0 +1,39 @@
+# import pyautogui
+# import time
+
+# print("Hover your mouse over the 'Calls' tab/icon in Phone Link.")
+# print("You have 5 seconds...")
+# time.sleep(5)
+# print("Calls Tab Position:", pyautogui.position())
+
+# print("\nHover your mouse over the search bar within the 'Calls' tab.")
+# print("You have 5 seconds...")
+# time.sleep(5)
+# print("Search Bar Position:", pyautogui.position())
+
+# print("\nType a contact name manually into the Phone Link search bar (e.g., 'John Doe').")
+# print("Hover your mouse over where the FIRST search result (the contact's name) appears.")
+# print("You have 10 seconds...") # More time here as you type first
+# time.sleep(10)
+# print("First Contact Result Position:", pyautogui.position())
+
+# print("\nAfter clicking the contact, the call button usually appears. Hover over that call button.")
+# print("You have 5 seconds...")
+# time.sleep(5)
+# print("Call Button for Contact Position:", pyautogui.position())
+
+# import pyautogui
+# import time
+
+# print("Open WhatsApp Desktop to a chat window.")
+# print("Hover your mouse over the Call Button (usually a phone or video camera icon at the top).")
+# print("You have 5 seconds...")
+# time.sleep(5)
+# print("WhatsApp Call Button Position:", pyautogui.position())
+
+import pyautogui
+import time
+
+print("Move your mouse to the desired position within 5 seconds...")
+time.sleep(5)
+print(pyautogui.position()) # This will print the (x, y) coordinates

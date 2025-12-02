@@ -1,0 +1,501 @@
+/* === General Reset === */
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+  font-family: 'Segoe UI', sans-serif;
+}
+
+body {
+  background-color: #000;
+  color: white;
+  height: 100vh;
+  /* Removed overflow: hidden to allow scrolling for chat-area */
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  align-items: center;
+  position: relative;
+  /* Add padding to the bottom equal to the height of the TextInput + its margin */
+  padding-bottom: 90px; /* Adjust based on TextInput height and bottom margin */
+}
+
+#siri-container {
+  position: fixed;
+  bottom: 90px; /* right above TextInput */
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: 300px;
+  height: 300px;
+  margin: 0 !important;
+  pointer-events: none; /* optional: prevents it from blocking UI */
+}
+
+/* === Ask Me Anything Text === */
+.text {
+  font-size: 1.5rem;
+  color: #ffffff;
+  text-align: center;
+  margin-top: 10px;
+  margin-bottom: 20px;
+}
+
+/* === Keep Input Section Styling As-Is But Position Bottom === */
+#TextInput {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  z-index: 100;
+  background: #000;
+}
+
+
+#chatbox {
+  flex-grow: 1;
+  border-radius: 5px;
+  padding: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  background-color: rgba(255, 255, 255, 0.1);
+  color: white;
+  margin-right: 10px;
+}
+
+#chatbox::placeholder {
+  color: rgba(255, 255, 255, 0.6);
+}
+
+/* Styles for the main chat window container itself */
+.chat-area {
+  /* ... (other styles for layout, width, height, background etc.) ... */
+  overflow-y: auto; /* This is the key: enables vertical scrolling when content overflows */
+
+  /* Standard scrollbar styling for Webkit browsers (Chrome, Safari, Edge) */
+  &::-webkit-scrollbar {
+    width: 8px; /* Width of the scrollbar */
+  }
+
+  &::-webkit-scrollbar-track {
+    background: #111; /* Color of the track behind the scrollbar */
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb {
+    background: #444; /* Color of the draggable scrollbar thumb */
+    border-radius: 10px;
+  }
+
+  &::-webkit-scrollbar-thumb:hover {
+    background: #666; /* Color when hovering over the scrollbar thumb */
+  }
+
+  /* Standard scrollbar styling for Firefox */
+  scrollbar-width: thin; /* Can be 'auto' or 'thin' */
+  scrollbar-color: #444 #111; /* 'thumb color' 'track color' */
+}
+
+/* Styles for a specific scrollable message content *within* a chat bubble */
+.chat-message.scrollable-content {
+    max-height: 150px; /* Example: set a max height for this specific message to become scrollable */
+    overflow-y: auto; /* Enables vertical scrolling for this individual message */
+    padding-right: 8px; /* Adds space so text doesn't hide under the scrollbar */
+
+    /* Scrollbar styling for Webkit browsers */
+    &::-webkit-scrollbar {
+        width: 6px; /* A thinner scrollbar for internal content */
+    }
+
+    &::-webkit-scrollbar-track {
+        background: #222;
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb {
+        background: #555;
+        border-radius: 3px;
+    }
+
+    &::-webkit-scrollbar-thumb:hover {
+        background: #777;
+    }
+
+    /* Scrollbar styling for Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #555 #222;
+}
+
+.chat-bubble {
+  margin-bottom: 10px;
+  display: flex;
+}
+
+.chat-message {
+  padding: 10px 15px;
+  border-radius: 20px;
+  max-width: 90%;
+  font-size: 1rem;
+  line-height: 1.4;
+}
+
+/* User message (blue, right) */
+.sender .user-message {
+  background-color: #007bff;
+  color: white;
+  margin-left: auto;
+  border-bottom-right-radius: 5px;
+}
+
+/* Jarvis message (gray, left) */
+.receiver .jarvis-message {
+  background-color: #333;
+  color: white;
+  margin-right: auto;
+  border-bottom-left-radius: 5px;
+}
+
+.sender .chat-message {
+  background-color: #007bff;
+  color: white;
+  margin-left: auto; /* Align to right */
+  border-bottom-right-radius: 5px; /* Adjust for sharper corner */
+}
+
+#Loading {
+  text-align: center;
+  margin-top: 20px;
+  width: 100%;
+  padding-top: 20px; /* Add some padding above */
+}
+
+.loader {
+  width: 100px;
+  height: 100px;
+  margin: 20px auto;
+  position: relative;
+}
+
+.loader span {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  border: 3px solid #00ffff;
+  border-radius: 50%;
+  animation: animate 1s linear infinite;
+}
+
+.loader span:nth-child(1) {
+  border-color: #ff0077;
+  animation-delay: 0s;
+}
+
+.loader span:nth-child(2) {
+  border-color: #ffcc00;
+  animation-delay: -0.2s;
+}
+
+.loader span:nth-child(3) {
+  border-color: #00ff77;
+  animation-delay: -0.4s;
+}
+
+.loader span:nth-child(4) {
+  border-color: #0077ff;
+  animation-delay: -0.6s;
+}
+
+.loader span:nth-child(5) {
+  border-color: #7700ff;
+  animation-delay: -0.8s;
+}
+
+@keyframes animate {
+  0% {
+    transform: scale(0);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 0;
+  }
+}
+
+.siri-message {
+    color: #00ffff;
+    font-size: 1.2rem;
+    height: 50px; /* Fixed height to prevent layout shifts */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.siri-message li {
+    list-style: none;
+}
+
+#VoicePreviewArea {
+    color: #ffcc00;
+    font-size: 1rem;
+    margin-top: 10px;
+    height: 30px; /* Fixed height for voice preview */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+
+/* Styling for typing dots */
+.typing {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 30px; /* Ensure it aligns with other text elements */
+    margin-top: 10px;
+}
+
+.typing__dot {
+    width: 8px;
+    height: 8px;
+    background-color: #aaa;
+    border-radius: 50%;
+    margin: 0 4px;
+    animation: typing-dot-bounce 0.6s infinite ease-in-out;
+}
+
+.typing__dot:nth-child(1) { animation-delay: 0s; }
+.typing__dot:nth-child(2) { animation-delay: 0.15s; }
+.typing__dot:nth-child(3) { animation-delay: 0.3s; }
+
+@keyframes typing-dot-bounce {
+    0%, 100% { transform: translateY(0); }
+    50% { transform: translateY(-5px); }
+}
+
+/* Glow-on-hover buttons */
+.glow-on-hover {
+    width: 50px; /* Fixed width */
+    height: 50px; /* Fixed height */
+    border: none;
+    outline: none;
+    color: #fff;
+    background: #111;
+    cursor: pointer;
+    position: relative;
+    z-index: 0;
+    border-radius: 50%; /* Make them circular */
+    overflow: hidden; /* Hide overflow of pseudo-elements */
+    display: flex; /* Use flexbox for centering icon */
+    justify-content: center;
+    align-items: center;
+    font-size: 1.2rem; /* Size of the icon */
+    margin-left: 5px; /* Space between buttons and input */
+}
+
+.glow-on-hover:before {
+    content: '';
+    background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+    position: absolute;
+    top: -2px;
+    left:-2px;
+    background-size: 400%;
+    z-index: -1;
+    filter: blur(5px);
+    width: calc(100% + 4px);
+    height: calc(100% + 4px);
+    animation: glowing 20s linear infinite;
+    opacity: 0;
+    transition: opacity .3s ease-in-out;
+    border-radius: 50%; /* Keep circular */
+}
+
+.glow-on-hover:active {
+    color: #000
+}
+
+.glow-on-hover:active:after {
+    background: transparent;
+}
+
+.glow-on-hover:hover:before {
+    opacity: 1;
+}
+
+.glow-on-hover:after {
+    z-index: -1;
+    content: '';
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    background: #111;
+    left: 0;
+    top: 0;
+    border-radius: 50%; /* Keep circular */
+}
+
+@keyframes glowing {
+    0% { background-position: 0 0; }
+    50% { background-position: 400% 0; }
+    100% { background-position: 0 0; }
+}
+
+/* Ensure icons are centered within buttons */
+.glow-on-hover i {
+    display: block;
+    text-align: center;
+    line-height: 1; /* Adjust as needed to vertically align */
+}
+
+/* Base styling for the containers, now all transparent initially */
+#Oval, #SiriWave, #ironman-3d-container {
+    width: 200px;
+    height: 200px;
+    border-radius: 50%;
+    margin: 50px auto;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    font-size: 1.5rem;
+    color: #fff;
+    background-color: transparent; /* Ensure transparent background */
+}
+
+/* Initially hide SiriWave and Oval, show Iron Man */
+#SiriWave {
+    display: none;
+}
+
+#Oval {
+    display: none;
+}
+
+#ironman-3d-container {
+    display: block; /* Make Iron Man visible by default */
+}
+
+
+/* Hidden state, controlled by JavaScript */
+[hidden] {
+    display: none !important;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    #siri-container {
+        width: 250px;
+        height: 250px;
+    }
+
+    #SiriWave, #Oval, #ironman-3d-container {
+        width: 180px;
+        height: 180px;
+    }
+
+    .text {
+        font-size: 1.2rem;
+    }
+
+    .siri-message {
+        font-size: 1rem;
+    }
+
+    #TextInput {
+        padding: 5px;
+    }
+
+    #chatbox {
+        padding: 8px;
+        font-size: 0.9rem;
+    }
+
+    .glow-on-hover {
+        width: 45px;
+        height: 45px;
+        font-size: 1rem;
+    }
+
+  #ironman-3d-container {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 1;
+}
+
+  #receiverTextArea {
+  width: 100%;
+  max-width: 600px;
+  max-height: 300px;
+  padding: 15px;
+  overflow-y: auto;           /* ✅ vertical scroll */
+  scroll-behavior: smooth;
+  border-radius: 10px;
+  margin: 0 auto;             /* ✅ center the box */
+  direction: ltr;             /* ✅ ensures scroll stays on right */
+}
+
+/* === New CSS for Attachment Button === */
+#receiverTextArea::-webkit-scrollbar {
+  width: 8px;
+}
+
+#receiverTextArea::-webkit-scrollbar-track {
+  background: #111;
+  border-radius: 10px;
+}
+
+#receiverTextArea::-webkit-scrollbar-thumb {
+  background: #444;
+  border-radius: 10px;
+}
+
+#receiverTextArea::-webkit-scrollbar-thumb:hover {
+  background: #666;
+}
+
+
+
+    /* NEW CSS for Attachment Button */
+    .attachment-button {
+        background-color: #333; /* Dark background */
+        color: white; /* White icon */
+        padding: 10px; /* Adjust padding as needed */
+        border-radius: 50%; /* Circular shape */
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        margin-right: 10px; /* Space between button and chatbox */
+        transition: background-color 0.3s ease;
+    }
+
+    .attachment-button:hover {
+        background-color: #555; /* Lighter on hover */
+    }
+
+    .attachment-button i {
+        font-size: 1.2rem; /* Size of the paperclip icon */
+    }
+
+    /* Adjust TextInput to use flexbox if it's not already */
+    #TextInput {
+        display: flex; /* Ensure flex behavior */
+        align-items: center; /* Vertically align items */
+        justify-content: center; /* Center items if needed, or adjust */
+        gap: 5px; /* Add a small gap between elements */
+    }
+    
+  body::before {
+  content: "";
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: url('assets/img/futuristic-bg.png') no-repeat center center fixed;
+  background-size: cover;
+  opacity: 0.15; /* adjust opacity for visibility */
+  z-index: -1;
+}
+}

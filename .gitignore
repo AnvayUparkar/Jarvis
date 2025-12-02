@@ -1,0 +1,57 @@
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.egg-info/
+.eggs/
+dist/
+build/
+*.spec
+
+# Virtualenv
+envjarvis/
+
+# Credentials and Tokens
+calendar_token.json
+client_secret_*.json
+credentials.json
+credentials2.json
+credentials3.json
+credentials4.json
+credentials5.json
+credentials6.json
+credentialsnew.json
+gen-lang-client-*.json
+gmail_token.json
+google_token.json
+token_store.json
+token.json
+
+# Local scripts
+device.bat
+whatsapp_call.bat
+
+# Porcupine hotword file
+*.ppn
+
+# Uploads and temporary files from web interfaces
+/temp_uploads/
+/uploads/
+/web/completed_files/
+/web/uploaded_files/
+/www/completed_files/
+/www/generated_images/
+/www/lesson_plans/
+/www/uploaded_files/
+/www/uploaded_presentation_files/
+/www/worksheets/
+/www/analyze_completed_files/
+/www/analyze_uploaded_files/
+
+# Other directories that seem to be external tools or libraries
+pyautogui/
+platform-tools/
+
+# EEL generated file
+jarvis_ai/response.html

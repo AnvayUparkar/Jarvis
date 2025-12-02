@@ -1,0 +1,16 @@
+2025-06-29 21:21:33,333 - INFO - Gemini AI configured successfully in presentation.py.
+2025-06-29 21:21:33,362 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5005
+2025-06-29 21:21:33,362 - INFO - [33mPress CTRL+C to quit[0m
+2025-06-29 21:21:33,363 - INFO -  * Restarting with stat
+2025-06-29 21:21:34,293 - INFO - Gemini AI configured successfully in presentation.py.
+2025-06-29 21:21:34,315 - WARNING -  * Debugger is active!
+2025-06-29 21:21:34,317 - INFO -  * Debugger PIN: 133-352-117
+2025-06-29 21:21:47,170 - INFO - Gemini AI configured successfully in presentation.py.
+2025-06-29 21:21:47,203 - INFO - [31m[1mWARNING: This is a development server. Do not use it in a production deployment. Use a production WSGI server instead.[0m
+ * Running on http://127.0.0.1:5005
+2025-06-29 21:21:47,203 - INFO - [33mPress CTRL+C to quit[0m
+2025-06-29 21:21:47,203 - INFO -  * Restarting with stat
+2025-06-29 21:21:48,145 - INFO - Gemini AI configured successfully in presentation.py.
+2025-06-29 21:21:48,168 - WARNING -  * Debugger is active!
+2025-06-29 21:21:48,172 - INFO -  * Debugger PIN: 133-352-117

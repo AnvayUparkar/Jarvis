@@ -1,0 +1,374 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>CSV Data Analyzer</title>
+    <!-- Tailwind CSS CDN for styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN for graphing -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            justify-content: center;
+            align-items: flex-start; /* Align to top to give space for content */
+            min-height: 100vh;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+        .container {
+            background-color: #ffffff;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1);
+            width: 100%;
+            max-width: 900px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 20px;
+        }
+        canvas {
+            max-width: 100%; /* Ensure canvas is responsive */
+            height: auto; /* Maintain aspect ratio */
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            background-color: #ffffff;
+        }
+        #message-box {
+            background-color: #e0f2fe; /* Light blue */
+            color: #0c4a6e; /* Dark blue */
+            padding: 10px 20px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-weight: 500;
+            display: none; /* Hidden by default */
+            text-align: center;
+        }
+        .button-group {
+            display: flex;
+            flex-direction: column;
+            gap: 10px; /* Space between buttons */
+            width: 100%;
+            justify-content: center;
+            align-items: center;
+        }
+        @media (min-width: 640px) { /* Tailwind's 'sm' breakpoint */
+            .button-group {
+                flex-direction: row;
+                gap: 15px; /* Adjust spacing for wider screens */
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1 class="text-3xl font-bold text-gray-800 mb-6">CSV Data Analyzer & Grapher</h1>
+
+        <div class="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
+            <input type="file" id="csvFileInput" accept=".csv" class="
+                block w-full text-sm text-gray-700
+                file:mr-4 file:py-2 file:px-4
+                file:rounded-full file:border-0
+                file:text-sm file:font-semibold
+                file:bg-blue-50 file:text-blue-700
+                hover:file:bg-blue-100
+                cursor-pointer rounded-lg border border-gray-300 p-2
+            ">
+            <div class="button-group">
+                <button id="analyzeButton" class="
+                    px-6 py-3 bg-blue-600 text-white font-semibold rounded-lg shadow-md
+                    hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-opacity-75
+                    transition duration-300 ease-in-out transform hover:scale-105
+                ">
+                    Analyze & Graph Data
+                </button>
+                <button id="downloadGraphButton" class="
+                    px-6 py-3 bg-green-600 text-white font-semibold rounded-lg shadow-md
+                    hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-opacity-75
+                    transition duration-300 ease-in-out transform hover:scale-105
+                    hidden /* Hidden by default until a graph is generated */
+                ">
+                    Download Graph
+                </button>
+            </div>
+        </div>
+
+        <div id="message-box" class="w-full"></div>
+
+        <div class="mt-8 w-full">
+            <canvas id="dataChart"></canvas>
+        </div>
+    </div>
+
+    <script>
+        // Get references to DOM elements
+        const csvFileInput = document.getElementById('csvFileInput');
+        const analyzeButton = document.getElementById('analyzeButton');
+        const downloadGraphButton = document.getElementById('downloadGraphButton');
+        const dataChartCanvas = document.getElementById('dataChart');
+        const messageBox = document.getElementById('message-box');
+        let chartInstance = null; // To hold the Chart.js instance
+
+        /**
+         * Displays a message in the message box.
+         * @param {string} message The message to display.
+         * @param {boolean} isError Whether the message is an error (changes background color).
+         */
+        function showMessage(message, isError = false) {
+            messageBox.textContent = message;
+            messageBox.style.display = 'block';
+            if (isError) {
+                messageBox.style.backgroundColor = '#fee2e2'; // Light red
+                messageBox.style.color = '#991b1b'; // Dark red
+            } else {
+                messageBox.style.backgroundColor = '#e0f2fe'; // Light blue
+                messageBox.style.color = '#0c4a6e'; // Dark blue
+            }
+        }
+
+        /**
+         * Clears any displayed message.
+         */
+        function clearMessage() {
+            messageBox.style.display = 'none';
+            messageBox.textContent = '';
+        }
+
+        /**
+         * Parses CSV text into an array of objects.
+         * Assumes the first row is the header.
+         * @param {string} csvText The raw CSV string.
+         * @returns {Array<Object> | null} An array of objects, or null if parsing fails.
+         */
+        function parseCSV(csvText) {
+            const lines = csvText.trim().split('\n');
+            if (lines.length === 0) {
+                showMessage('The CSV file is empty.', true);
+                return null;
+            }
+
+            const headers = lines[0].split(',').map(header => header.trim());
+            const data = [];
+
+            for (let i = 1; i < lines.length; i++) {
+                const values = lines[i].split(',').map(value => value.trim());
+                if (values.length !== headers.length) {
+                    console.warn(`Skipping malformed row ${i + 1}: ${lines[i]}`);
+                    continue;
+                }
+                const row = {};
+                headers.forEach((header, index) => {
+                    row[header] = values[index];
+                });
+                data.push(row);
+            }
+            return data;
+        }
+
+        /**
+         * Analyzes parsed data and prepares it for Chart.js.
+         * For simplicity, it attempts to use the first column as labels
+         * and the first numeric column found as data.
+         * @param {Array<Object>} data The parsed CSV data.
+         * @returns {Object | null} An object with labels and datasets, or null if suitable data not found.
+         */
+        function analyzeDataForChart(data) {
+            if (!data || data.length === 0) {
+                showMessage('No data to analyze.', true);
+                return null;
+            }
+
+            const headers = Object.keys(data[0]);
+            let labels = [];
+            let chartData = [];
+            let dataLabel = 'Value';
+
+            if (headers.length > 0) {
+                labels = data.map(row => row[headers[0]]);
+            } else {
+                showMessage('No headers found in CSV. Cannot generate labels.', true);
+                return null;
+            }
+
+            let numericColumnIndex = -1;
+            for (let i = 0; i < headers.length; i++) {
+                const sampleValue = data[0][headers[i]];
+                if (!isNaN(parseFloat(sampleValue)) && isFinite(sampleValue)) {
+                    numericColumnIndex = i;
+                    dataLabel = headers[i];
+                    break;
+                }
+            }
+
+            if (numericColumnIndex === -1) {
+                showMessage('Could not find a suitable numeric column for graphing. Please ensure your CSV has numeric data.', true);
+                return null;
+            }
+
+            chartData = data.map(row => parseFloat(row[headers[numericColumnIndex]]));
+
+            return {
+                labels: labels,
+                datasets: [{
+                    label: dataLabel,
+                    data: chartData,
+                    backgroundColor: 'rgba(59, 130, 246, 0.6)',
+                    borderColor: 'rgba(59, 130, 246, 1)',
+                    borderWidth: 1,
+                    borderRadius: 4,
+                }]
+            };
+        }
+
+        /**
+         * Creates or updates a Chart.js graph.
+         * @param {Object} chartData The data object for Chart.js.
+         */
+        function createChart(chartData) {
+            const ctx = dataChartCanvas.getContext('2d');
+
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+
+            chartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: chartData,
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            display: true,
+                            position: 'top',
+                            labels: {
+                                font: {
+                                    size: 14
+                                }
+                            }
+                        },
+                        title: {
+                            display: true,
+                            text: 'CSV Data Visualization',
+                            font: {
+                                size: 18
+                            },
+                            color: '#333'
+                        }
+                    },
+                    scales: {
+                        x: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#555'
+                            },
+                            grid: {
+                                display: false
+                            }
+                        },
+                        y: {
+                            beginAtZero: true,
+                            ticks: {
+                                color: '#555'
+                            },
+                            grid: {
+                                color: '#e2e8f0'
+                            }
+                        }
+                    }
+                }
+            });
+            // Show the download button after a chart is successfully created
+            downloadGraphButton.classList.remove('hidden');
+        }
+
+        /**
+         * Public function to analyze and graph data from a CSV string.
+         * This function can be called by an external script (e.g., Jarvis).
+         * @param {string} csvString The raw CSV data as a string.
+         */
+        window.analyzeCSVFromText = function(csvString) {
+            clearMessage();
+            if (!csvString || csvString.trim() === "") {
+                showMessage('No CSV string provided for analysis.', true);
+                return;
+            }
+
+            try {
+                const parsedData = parseCSV(csvString);
+                if (parsedData) {
+                    const chartReadyData = analyzeDataForChart(parsedData);
+                    if (chartReadyData) {
+                        createChart(chartReadyData);
+                        showMessage('CSV data analyzed and graph generated successfully from provided text!');
+                    } else {
+                         // If chartReadyData is null, hide the download button
+                        downloadGraphButton.classList.add('hidden');
+                    }
+                } else {
+                    // If parsing failed, hide the download button
+                    downloadGraphButton.classList.add('hidden');
+                }
+            } catch (error) {
+                console.error('Error processing CSV from text:', error);
+                showMessage(`Error processing CSV string: ${error.message}`, true);
+                downloadGraphButton.classList.add('hidden');
+            }
+        };
+
+        // Event Listener for the Analyze Button
+        analyzeButton.addEventListener('click', () => {
+            clearMessage();
+
+            const file = csvFileInput.files[0];
+            if (!file) {
+                showMessage('Please select a CSV file first.', true);
+                return;
+            }
+
+            const reader = new FileReader();
+
+            reader.onload = (e) => {
+                try {
+                    const csvText = e.target.result;
+                    window.analyzeCSVFromText(csvText);
+                } catch (error) {
+                    console.error('Error reading CSV file:', error);
+                    showMessage(`Error reading CSV file: ${error.message}`, true);
+                    downloadGraphButton.classList.add('hidden');
+                }
+            };
+
+            reader.onerror = () => {
+                showMessage('Failed to read the file. Please try again.', true);
+                downloadGraphButton.classList.add('hidden');
+            };
+
+            reader.readAsText(file);
+        });
+
+        // Event Listener for the Download Graph Button
+        downloadGraphButton.addEventListener('click', () => {
+            if (chartInstance) {
+                // Get the data URL of the chart canvas as a PNG image
+                const image = dataChartCanvas.toDataURL('image/png');
+
+                // Create a temporary link element
+                const a = document.createElement('a');
+                a.href = image;
+                a.download = 'csv_data_graph.png'; // Suggested filename for the downloaded image
+                document.body.appendChild(a); // Append to body is necessary for Firefox
+                a.click(); // Programmatically click the link to trigger download
+                document.body.removeChild(a); // Remove the link after download
+                showMessage('Graph downloaded successfully!');
+            } else {
+                showMessage('No graph available to download.', true);
+            }
+        });
+    </script>
+</body>
+</html>
