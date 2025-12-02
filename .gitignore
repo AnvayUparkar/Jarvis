@@ -8,7 +8,7 @@ __pycache__/
 dist/
 build/
 *.spec
-*.log
+
 
 # Virtualenv
 envjarvis/
@@ -56,3 +56,6 @@ platform-tools/
 
 # EEL generated file
 jarvis_ai/response.html
+
+*.log
+jarvis.log
