@@ -3223,18 +3223,29 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
                 saved_path = generate_image_pollinations(topic)
 
                 if saved_path:
-                    speak(f"Image has been generated and saved successfully to your Downloads folder. Displaying it now.")
-                    eel.showImage(saved_path)
-                else:
-                    speak("I was unable to generate the image. Please check my console logs for more details.")
+                    speak("Image has been generated successfully. Downloading it now.")
+                    
+                    # Ensure file exists
+                    if os.path.exists(saved_path):
+                        # Read file and convert to base64
+                        with open(saved_path, "rb") as f:
+                            encoded = base64.b64encode(f.read()).decode("utf-8")
+
+                        filename = os.path.basename(saved_path)
+
+                        # Trigger download in browser
+                        eel.downloadCompletedFile(encoded, filename)()
+                        eel.showImage(f"data:image/png;base64,{encoded}")()  # also display
+                    else:
+                        speak("I couldn't find the saved image file. Please check my logs.")
 
             except Exception as e:
-                print(f"⚠️ Image generation error: {e}")
+                print(f"⚠ Image generation error: {e}")
                 speak("Something went wrong during image generation.")
         else:
             speak("I didn't catch that. Please provide a clear description for the image.")
 
-        text_input_command = None # Clear this after use, if it was set by receive_text_command
+        text_input_command = None
 
     # --- INTEGRATION OF OPEN_APP_BY_SEARCH ---
     elif "open" in command:
