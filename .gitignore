@@ -64,3 +64,4 @@ jarvis.log
 # Secrets
 apikey.py
 .env
+.cache/
