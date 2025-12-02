@@ -2990,19 +2990,19 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
             speak(f"I will create a form about {form_topic}. The title will be '{form_title}' and a default description will be used.")
         else:
             speak("What is the main topic or purpose of this form?")
-            form_topic = source_input_text.strip() if source_input_text else listen_for_response().strip()
+            form_topic = source_input_text.strip() if source_input_text else listen().strip()
             if not form_topic:
                 speak("No topic provided. Cannot create the form.")
                 return
 
             speak("What would you like to title the form?")
-            form_title = source_input_text.strip() if source_input_text else listen_for_response().strip()
+            form_title = source_input_text.strip() if source_input_text else listen().strip()
             if not form_title:
                 form_title = f"Form about {form_topic}"
                 speak(f"No title provided, so I'll title it: {form_title}")
 
             speak("Please provide a brief description for the form.")
-            form_description = source_input_text.strip() if source_input_text else listen_for_response().strip()
+            form_description = source_input_text.strip() if source_input_text else listen().strip()
             if not form_description:
                 form_description = f"This form collects information related to {form_topic}."
                 speak(f"No description provided, so I'll use: {form_description}")
@@ -3071,7 +3071,7 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
             email_topic = match_email_command.group(1).strip()
         else:
             speak("What is the topic of the email you want to generate?")
-            email_topic = source_input_text.strip() if source_input_text else listen_for_response().strip()
+            email_topic = source_input_text.strip() if source_input_text else listen().strip()
 
         if not email_topic:
             speak("No topic provided. Cannot generate the email.")
