@@ -136,3 +136,129 @@ Fully interactive GUI frontend
 Supports typed input and live voice input
 
 Real-time message bubbles (Jarvis UI)
+
+🔧 Full Setup Guide (After Cloning the Project)
+
+Follow these steps exactly to run Jarvis smoothly.
+
+1️⃣ Clone the Repository
+git clone https://github.com/YOUR-USERNAME/JARVIS.git
+cd JARVIS
+
+2️⃣ Create .env File (Store All Keys)
+
+Create a file named:
+
+.env
+
+
+Paste this:
+
+GEMINI_API_KEY=YOUR_GEMINI_API_KEY
+MURF_API_KEY=YOUR_MURF_API_KEY
+
+SPOTIPY_CLIENT_ID=YOUR_SPOTIFY_CLIENT_ID
+SPOTIPY_CLIENT_SECRET=YOUR_SPOTIFY_CLIENT_SECRET
+
+YT_COOKIE=YOUR_YOUTUBE_COOKIE
+
+
+
+⚠️ Never commit .env to GitHub.
+
+3️⃣ Setup Google Gemini Credentials
+✅ Step 1 — Create Gemini API Key
+
+Go to Google AI Studio:
+https://aistudio.google.com
+
+Open API Keys
+
+Click Create API Key
+
+Copy the key and paste it into .env as GEMINI_API_KEY
+
+✅ Step 2 — Enable Required Google APIs
+
+Go to Google Cloud Console:
+https://console.cloud.google.com
+
+Enable these APIs:
+
+Gemini API
+
+Vertex AI API (optional)
+
+Google Text Embeddings API (optional)
+
+Google Contacts API (Required for WhatsApp calling)
+
+Speech-to-Text API (if using Google STT)
+
+To enable:
+
+Console → APIs & Services → Enable APIs → Search → Enable
+
+4️⃣ Install All Dependencies
+pip install -r requirements.txt
+
+
+If using Whisper ASR:
+
+pip install openai-whisper
+
+
+If using Porcupine for hotword detection:
+
+pip install pvporcupine
+
+5️⃣ Test Gemini Connection
+
+Create a file test_gemini.py:
+
+from google import genai
+import os
+
+client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+
+response = client.models.generate_text(
+    model="gemini-pro",
+    prompt="Hello from Jarvis!"
+)
+
+print(response.text)
+
+
+Run:
+
+python test_gemini.py
+
+
+If it prints a response → Gemini is working.
+
+6️⃣ Setup Murf Falcon TTS
+
+Create API key at https://murf.ai
+
+Add to .env:
+
+MURF_API_KEY=xxxxx
+
+7️⃣ Spotify & YouTube Music Setup
+Spotify
+
+Create Spotify app: https://developer.spotify.com/dashboard/create
+
+Paste credentials in .env.
+
+YouTube
+
+Copy your YouTube cookie and add:
+
+YT_COOKIE="YOUR COOKIE"
+
+8️⃣ Run Jarvis
+
+Simply run:
+
+python run.py
