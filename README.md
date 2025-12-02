@@ -3,6 +3,8 @@
 Jarvis is a multimodal AI assistant that generates lesson plans, worksheets, presentations, feedback, and more — all in local Indian languages.
 It uses Gemini AI, Murf Falcon TTS, Google APIs, and WhatsApp automation to help users automate tasks through simple voice commands.
 
+Demo Link:- https://drive.google.com/file/d/1ItAbr6IzIiWkWEQU5JhBrDSR66WCFAeT/view?usp=sharing
+
 Jarvis can:
 
 🎤 Understand speech (ASR)
