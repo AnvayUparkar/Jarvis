@@ -44,6 +44,7 @@ from googleapiclient.discovery import build
 # NEW: Import the create_google_form function from the integration file
 from google_forms_integration import create_google_form
 # NEW: Import the generate_formal_email_draft function from gmail.py
+import gmail
 from gmail import generate_email_body_with_gemini
 from email.mime.text import MIMEText # NEW: Import for creating email messages
 
@@ -55,7 +56,7 @@ try:
     from apikey import api_data as GEN_AI_API_KEY
 except ImportError:
     print("Error: apikey.py not found or GEN_AI_API_KEY not defined. Using placeholder.")
-    GEN_AI_API_KEY = "" # Placeholder, replace with actual key if not using apikey.py
+    GEN_AI_API_KEY = "AIzaSyB_H-_FNNVw-Oo10NyPJoOeTpXoXOPRRmY" # Placeholder, replace with actual key if not using apikey.py
 
 
 # Using a single credentials file for all Google APIs for consistency
@@ -651,7 +652,6 @@ def speak(text):
 
     text = str(text)
     try:
-        # Update frontend
         if hasattr(eel, 'DisplayMessage') and callable(eel.DisplayMessage):
             eel.DisplayMessage(text)
         if hasattr(eel, 'receiverText') and callable(eel.receiverText):
@@ -664,38 +664,22 @@ def speak(text):
         engine.setProperty('voice', voices[0].id)
         engine.setProperty('rate', 174)
 
-        # Try gTTS first
         tts = gTTS(text=text, lang='en', slow=False)
         tts.save("response.mp3")
         pygame.mixer.music.load("response.mp3")
         pygame.mixer.music.play()
-
         while pygame.mixer.music.get_busy():
             pygame.time.Clock().tick(10)
-
         pygame.mixer.music.stop()
         pygame.mixer.quit()
         pygame.mixer.init()
-
         if os.path.exists("response.mp3"):
             os.remove("response.mp3")
-
-        is_speaking = False
-        return True  # ✅ Success
-
     except Exception as e:
         print(f"Error in speak function (gTTS/pygame): {e}. Falling back to pyttsx3.")
-
-        try:
-            engine.say(text)
-            engine.runAndWait()
-            is_speaking = False
-            return True  # ✅ Fallback success
-        except Exception as inner_e:
-            print(f"Fallback pyttsx3 also failed: {inner_e}")
-            is_speaking = False
-            return False  # ❌ Both failed
-
+        engine.say(text)
+        engine.runAndWait()
+    is_speaking = False
 
 # --- [Fine-Tuned listen()] ---
 def listen():
@@ -3393,6 +3377,7 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
         speak("Thinking...")
         try:
             response_text = aiProcess(command)
+            response_text = response_text.replace('*', '')
             speak(response_text)
         except Exception as e:
             speak("I am sorry, I am unable to process your request at the moment.")
