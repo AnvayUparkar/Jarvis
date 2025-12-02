@@ -60,3 +60,7 @@ jarvis_ai/response.html
 # Log files
 *.log
 jarvis.log
+
+# Secrets
+apikey.py
+.env
