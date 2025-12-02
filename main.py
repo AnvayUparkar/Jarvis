@@ -55,7 +55,7 @@ try:
     from apikey import api_data as GEN_AI_API_KEY
 except ImportError:
     print("Error: apikey.py not found or GEN_AI_API_KEY not defined. Using placeholder.")
-    GEN_AI_API_KEY = "AIzaSyB_H-_FNNVw-Oo10NyPJoOeTpXoXOPRRmY" # Placeholder, replace with actual key if not using apikey.py
+    GEN_AI_API_KEY = "" # Placeholder, replace with actual key if not using apikey.py
 
 
 # Using a single credentials file for all Google APIs for consistency
