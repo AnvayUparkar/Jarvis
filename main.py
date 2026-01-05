@@ -3663,7 +3663,7 @@ def start(command_queue):
 
     threading.Thread(target=hotword_listener_thread, args=(hotword_queue,), daemon=True).start()
 
-    eel.start('index.html', size=(1000, 800), block=False)
+    eel.start('home.html', size=(1000, 800), block=False)
 
     while True:
         eel.sleep(1.0)
