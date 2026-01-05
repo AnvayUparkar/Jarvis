@@ -66,6 +66,6 @@ apikey.py
 .env
 .cache/
 
+# Account and user-specific tokens
 active_account.json
-accounts/token_anvaymuparkar_at_gmail_com.json
-accounts/token_mansi_uparkar09_at_gmail_com.json
+/accounts/token_*.json
