@@ -49,7 +49,7 @@ def answer_mcq_question(question: str, options: list[str]) -> str:
 
     try:
         # Call the Gemini API
-        model = google_ai.GenerativeModel('gemini-2.0-flash')
+        model = google_ai.GenerativeModel('gemini-2.5-flash')
         response = model.generate_content(prompt)
         
         # Extract the text response and clean it

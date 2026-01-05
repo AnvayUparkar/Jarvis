@@ -38,7 +38,7 @@ def generate_email_body_with_gemini(subject: str, context: str = "", speak_func=
     print(f"🧠 Gemini generating email body for: {subject}")
 
     try:
-        model = google_ai.GenerativeModel("gemini-2.0-flash")
+        model = google_ai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         return response.text.strip()
     except Exception as e:

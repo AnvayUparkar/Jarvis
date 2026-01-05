@@ -184,8 +184,8 @@ def get_slide_content(topic, speak):
     print(f"🧠 Asking Gemini for content on: {topic}")
     speak(f"Thinking about detailed content for {topic}...")
     try:
-        # Changed model from 'gemini-pro' to 'gemini-2.0-flash' for better availability
-        model = google_ai.GenerativeModel("gemini-2.0-flash") 
+        # Changed model from 'gemini-pro' to 'gemini-2.5-flash' for better availability
+        model = google_ai.GenerativeModel("gemini-2.5-flash") 
         response = model.generate_content(prompt)
         
         json_string = response.text.strip()
@@ -1592,7 +1592,7 @@ def fetch_next_news():
         speak("Please say 'news' first to fetch the latest headlines.")
 
 def aiProcess(command):
-    model = google_ai.GenerativeModel('gemini-2.0-flash')
+    model = google_ai.GenerativeModel('gemini-2.5-flash')
     response = model.generate_content(
         f"You are a virtual assistant named Jarvis skilled in general tasks like Alexa and Google Cloud.\n{command}")
     return response.text
@@ -3009,7 +3009,7 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
 
         speak("Generating questions for the form using AI. This might take a moment.")
         try:
-            gemini_model = google_ai.GenerativeModel("gemini-2.0-flash")
+            gemini_model = google_ai.GenerativeModel("gemini-2.5-flash")
             question_prompt = f"""
             Generate 5-7 diverse questions for a Google Form about \"{form_topic}\".
             For each question, specify its type (e.g., 'TEXT', 'PARAGRAPH_TEXT', 'MULTIPLE_CHOICE', 'CHECKBOX', 'DROPDOWN').

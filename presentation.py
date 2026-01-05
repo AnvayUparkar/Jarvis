@@ -70,7 +70,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 if GEN_AI_API_KEY:
     try:
         genai.configure(api_key=GEN_AI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.0-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash")
     except Exception as e:
         print(f"CRITICAL ERROR: Failed to configure Gemini API with provided key: {e}")
         model = None # Set model to None if configuration fails
@@ -181,8 +181,8 @@ def get_slide_content(topic, speak):
     print(f"🧠 Asking Gemini for content on: {topic}")
     speak(f"Thinking about detailed content for {topic}...")
     try:
-        # Changed model from 'gemini-pro' to 'gemini-2.0-flash' for better availability
-        model = genai.GenerativeModel("gemini-2.0-flash") 
+        # Changed model from 'gemini-pro' to 'gemini-2.5-flash' for better availability
+        model = genai.GenerativeModel("gemini-2.5-flash") 
         response = model.generate_content(prompt)
         
         json_string = response.text.strip()

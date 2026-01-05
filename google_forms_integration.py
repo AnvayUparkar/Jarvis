@@ -54,7 +54,7 @@ def generate_options_with_gemini(form_topic: str, question_text: str, speak_func
     print(f"🧠 Asking Gemini to generate options for: '{question_text}' (Topic: '{form_topic}')")
     speak_func(f"Generating options for the question: '{question_text}'.")
     try:
-        model = google_ai.GenerativeModel("gemini-2.0-flash")
+        model = google_ai.GenerativeModel("gemini-2.5-flash")
         response = model.generate_content(prompt)
         
         json_string = response.text.strip()
