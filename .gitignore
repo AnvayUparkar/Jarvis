@@ -65,3 +65,7 @@ jarvis.log
 apikey.py
 .env
 .cache/
+
+active_account.json
+accounts/token_anvaymuparkar_at_gmail_com.json
+accounts/token_mansi_uparkar09_at_gmail_com.json
