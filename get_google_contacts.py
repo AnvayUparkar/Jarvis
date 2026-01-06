@@ -17,22 +17,42 @@ def get_google_contacts():
         print("✅ Found existing token.json file.")
     else:
         print("❌ token.json file not found. Starting OAuth flow...")
+    
     if os.path.exists('token.json'):
-        creds = Credentials.from_authorized_user_file('token.json',
-                                                      ['https://www.googleapis.com/auth/contacts.readonly'])
+        try:
+            creds = Credentials.from_authorized_user_file('token.json',
+                                                          ['https://www.googleapis.com/auth/contacts.readonly'])
+        except Exception as e:
+            print(f"⚠️ Error loading token: {e}")
+            if 'invalid_grant' in str(e):
+                print("🔄 Token is invalid. Clearing for re-authentication...")
+                os.remove('token.json')
+    
     if not creds or not creds.valid:
         if creds and creds.expired and creds.refresh_token:
             print("🔄 Refreshing expired credentials...")
-            creds.refresh(Request())
-        else:
+            try:
+                creds.refresh(Request())
+                with open('token.json', 'w') as token:
+                    print("💾 Saving refreshed credentials to token.json...")
+                    token.write(creds.to_json())
+            except Exception as e:
+                print(f"⚠️ Failed to refresh token: {e}")
+                if 'invalid_grant' in str(e):
+                    print("🔄 Refresh token is invalid. Clearing for re-authentication...")
+                    if os.path.exists('token.json'):
+                        os.remove('token.json')
+                    creds = None
+        
+        if not creds or not creds.valid:
             print("🔑 No valid credentials found. Starting OAuth flow...")
             flow = InstalledAppFlow.from_client_secrets_file(
-                r'C:\Users\Anvay Uparkar\Python\JARVIS\jarvis_ai\client_secret_133871116699-teh8o91k85noal3nid1tkr1o6j3kbfce.apps.googleusercontent.com.json',
+                'client_secret_133871116699-cn0a6i1lja1n9gkos0f3kr6sia0jej55.apps.googleusercontent.com.json',
                 ['https://www.googleapis.com/auth/contacts.readonly'])
             creds = flow.run_local_server(port=0)
-        with open('token.json', 'w') as token:
-            print("💾 Saving new credentials to token.json...")
-            token.write(creds.to_json())
+            with open('token.json', 'w') as token:
+                print("💾 Saving new credentials to token.json...")
+                token.write(creds.to_json())
 
     try:
         print("📞 Fetching Google Contacts...")
@@ -47,11 +67,39 @@ def get_google_contacts():
 
     except Exception as error:
         print(f"❌ An error occurred while accessing contacts: {error}")
+        if 'invalid_grant' in str(error):
+            print("⚠️ Token is invalid. Please re-authenticate.")
+            if os.path.exists('token.json'):
+                os.remove('token.json')
         return []
 
 def get_contact_number(name_to_search):
     try:
-        creds = Credentials.from_authorized_user_file('token.json', ['https://www.googleapis.com/auth/contacts.readonly'])
+        creds = None
+        
+        # Try to load existing token
+        if os.path.exists('token.json'):
+            creds = Credentials.from_authorized_user_file('token.json', ['https://www.googleapis.com/auth/contacts.readonly'])
+            
+            # Check if token is expired and refresh if needed
+            if creds and creds.expired and creds.refresh_token:
+                print("🔄 Refreshing expired credentials...")
+                creds.refresh(Request())
+                # Save the refreshed token
+                with open('token.json', 'w') as token:
+                    token.write(creds.to_json())
+        
+        # If no valid credentials, trigger OAuth flow
+        if not creds or not creds.valid:
+            print("🔑 No valid credentials found. Starting OAuth flow...")
+            flow = InstalledAppFlow.from_client_secrets_file(
+                'client_secret_133871116699-cn0a6i1lja1n9gkos0f3kr6sia0jej55.apps.googleusercontent.com.json',
+                ['https://www.googleapis.com/auth/contacts.readonly'])
+            creds = flow.run_local_server(port=0)
+            with open('token.json', 'w') as token:
+                print("💾 Saving new credentials to token.json...")
+                token.write(creds.to_json())
+        
         service = build('people', 'v1', credentials=creds)
         results = service.people().connections().list(
             resourceName='people/me',
@@ -72,6 +120,12 @@ def get_contact_number(name_to_search):
         return None
     except Exception as e:
         print(f"❌ Error fetching contact: {e}")
+        # If it's an invalid_grant error, delete the corrupted token
+        if 'invalid_grant' in str(e):
+            print("⚠️ Token is invalid. Clearing token.json for re-authentication...")
+            if os.path.exists('token.json'):
+                os.remove('token.json')
+            print("🔑 Please try again to trigger a fresh OAuth flow.")
         return None
 
 if __name__ == '__main__':
