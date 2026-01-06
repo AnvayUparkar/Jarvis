@@ -261,6 +261,24 @@
 </head>
 
 <body>
+  <!-- Authentication Check -->
+  <script>
+    // Check if user is authenticated when page loads
+    window.addEventListener('load', async () => {
+      try {
+        const userInfo = await eel.get_authenticated_user_info()();
+        if (!userInfo || !userInfo.authenticated) {
+          // User is not authenticated - redirect to home.html to login
+          console.log('User not authenticated. Redirecting to home.html');
+          window.location.href = 'home.html';
+        }
+      } catch (error) {
+        console.log('Authentication check failed, redirecting to home.html');
+        window.location.href = 'home.html';
+      }
+    });
+  </script>
+
   <div class="container">
   <!-- Main Content -->
   <section class="main-content">
