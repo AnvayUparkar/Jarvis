@@ -16,6 +16,70 @@
       color: white;
       background: url('assets/img/futuristic-bg.png') no-repeat center center fixed;
       background-size: cover;
+      position: relative;
+    }
+
+    /* Navigation Bar */
+    .navbar-top {
+      position: fixed;
+      top: 0;
+      left: 0;
+      right: 0;
+      background: rgba(0, 0, 0, 0.8);
+      backdrop-filter: blur(10px);
+      border-bottom: 1px solid rgba(0, 255, 255, 0.2);
+      padding: 15px 30px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      z-index: 1001;
+    }
+
+    .navbar-brand {
+      font-size: 1.3rem;
+      font-weight: 800;
+      color: #00ffff;
+      text-decoration: none;
+      letter-spacing: 2px;
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);
+    }
+
+    .navbar-link {
+      color: rgba(255, 255, 255, 0.8);
+      text-decoration: none;
+      font-weight: 600;
+      transition: all 0.3s ease;
+      padding: 8px 16px;
+      border-radius: 20px;
+    }
+
+    .navbar-link:hover {
+      color: #00ffff;
+      background: rgba(0, 255, 255, 0.1);
+      text-shadow: 0 0 10px rgba(0, 255, 255, 0.6);
+    }
+
+    /* Cursor Prompt */
+    .cursor-prompt {
+      position: fixed;
+      pointer-events: none;
+      z-index: 9999;
+      padding: 10px 20px;
+      background: rgba(0, 255, 255, 0.2);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(0, 255, 255, 0.5);
+      border-radius: 20px;
+      color: #00ffff;
+      font-size: 0.9rem;
+      font-weight: 600;
+      white-space: nowrap;
+      opacity: 0;
+      transition: opacity 0.3s ease;
+      box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+    }
+
+    .cursor-prompt.visible {
+      opacity: 1;
     }
 
     .glow-circle {
@@ -62,6 +126,7 @@
       flex-direction: column;
       flex-grow: 1;
       padding-bottom: 80px;
+      padding-top: 60px;
       background-color: transparent;
     }
 
@@ -261,22 +326,28 @@
 </head>
 
 <body>
-  <!-- Authentication Check -->
+  <!-- Navigation Bar -->
+  <div class="navbar-top">
+    <a href="index.html" class="navbar-brand">J A R V I S</a>
+    <a href="#" id="goHomeLink" class="navbar-link">← Home</a>
+  </div>
   <script>
-    // Check if user is authenticated when page loads
-    window.addEventListener('load', async () => {
-      try {
-        const userInfo = await eel.get_authenticated_user_info()();
-        if (!userInfo || !userInfo.authenticated) {
-          // User is not authenticated - redirect to home.html to login
-          console.log('User not authenticated. Redirecting to home.html');
-          window.location.href = 'home.html';
+    // Robust navigation to Home: if page is loaded via file://, redirect to local Eel server
+    (function() {
+      const goHome = () => {
+        try {
+          if (location.protocol === 'http:' || location.protocol === 'https:') {
+            location.href = location.origin + '/home.html';
+          } else {
+            location.href = 'http://127.0.0.1:8000/home.html';
+          }
+        } catch (e) {
+          location.href = 'http://127.0.0.1:8000/home.html';
         }
-      } catch (error) {
-        console.log('Authentication check failed, redirecting to home.html');
-        window.location.href = 'home.html';
-      }
-    });
+      };
+      const el = document.getElementById('goHomeLink');
+      if (el) el.addEventListener('click', (ev) => { ev.preventDefault(); goHome(); });
+    })();
   </script>
 
   <div class="container">
@@ -376,6 +447,9 @@
     </div>
   </div>
 
+  <!-- Cursor Prompt -->
+  <div class="cursor-prompt" id="cursorPrompt">Type command...</div>
+
   <!-- Scripts -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/siriwave/2.0.2/siriwave.min.js"></script>
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -388,6 +462,33 @@
   <script src="ironman3d.js"></script>
 
   <script>
+    // Cursor tracking for prompt
+    document.addEventListener('mousemove', (e) => {
+      const prompt = document.getElementById('cursorPrompt');
+      prompt.style.left = (e.clientX + 15) + 'px';
+      prompt.style.top = (e.clientY + 15) + 'px';
+    });
+
+    // Show cursor prompt on mic/send/attach buttons
+    const buttons = document.querySelectorAll('.glow-on-hover');
+    buttons.forEach(btn => {
+      btn.addEventListener('mouseenter', () => {
+        const prompt = document.getElementById('cursorPrompt');
+        prompt.classList.add('visible');
+        if (btn.id === 'MicBtn') {
+          prompt.textContent = 'Click to speak';
+        } else if (btn.id === 'SendBtn') {
+          prompt.textContent = 'Send message';
+        } else if (btn.id === 'AttachBtn') {
+          prompt.textContent = 'Attach file';
+        }
+      });
+      btn.addEventListener('mouseleave', () => {
+        document.getElementById('cursorPrompt').classList.remove('visible');
+        document.getElementById('cursorPrompt').textContent = 'Type command...';
+      });
+    });
+
     // Append user's message to chat
     function appendUserMessage(message) {
       const chatArea = document.getElementById("receiverTextArea");

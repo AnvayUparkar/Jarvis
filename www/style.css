@@ -499,58 +499,36 @@ body {
   z-index: -1;
 }
 }
-/* Google Auth Button Styles */
-.google-button {
-  width: 100%;
-  padding: 12px 20px;
-  margin-top: 10px;
-  background: linear-gradient(135deg, #4285f4 0%, #357ae8 100%);
+
+/* === Google Login Button Styling === */
+.google-btn {
+  background: linear-gradient(135deg, #4285F4 0%, #34A853 50%, #FBBC04 75%, #EA4335 100%);
+  background-size: 200% 200%;
   color: white;
   border: none;
-  border-radius: 8px;
-  font-size: 16px;
+  padding: 12px 20px;
+  font-size: 14px;
   font-weight: 600;
+  border-radius: 8px;
   cursor: pointer;
   transition: all 0.3s ease;
   display: flex;
   align-items: center;
   justify-content: center;
   gap: 10px;
+  width: 100%;
 }
 
-.google-button:hover {
+.google-btn:hover {
+  background-size: 400% 400%;
   transform: translateY(-2px);
   box-shadow: 0 8px 20px rgba(66, 133, 244, 0.4);
-  background: linear-gradient(135deg, #357ae8 0%, #2d5ac7 100%);
 }
 
-.google-button i {
+.google-btn:active {
+  transform: translateY(0);
+}
+
+.google-btn i {
   font-size: 18px;
-}
-
-/* Divider Styles */
-.divider {
-  text-align: center;
-  margin: 20px 0;
-  color: #888;
-  font-size: 14px;
-  position: relative;
-}
-
-.divider::before,
-.divider::after {
-  content: "";
-  position: absolute;
-  top: 50%;
-  width: 40%;
-  height: 1px;
-  background: #444;
-}
-
-.divider::before {
-  left: 0;
-}
-
-.divider::after {
-  right: 0;
 }
