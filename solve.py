@@ -199,15 +199,45 @@ def solve_question_endpoint():
              print("WARNING: No text extracted from the document/PDF. This might result in poor solution generation.") # Updated warning
              # Consider returning an error here or sending a different prompt to Gemini if no text is vital
 
-        # Craft the prompt to solve the problem
+        # Craft the prompt to solve the problem with proper formatting instructions
         solve_prompt_template = """
-        You are a problem-solving bot. Your task is to analyze the provided document or image content, identify any mathematical or logical questions/problems, and provide a detailed step-by-step solution.
-        If there are multiple problems, solve each one individually.
-        Clearly state the problem before providing its solution.
-        If the content is not a problem, state that the content does not contain a solvable problem.
+You are a professional mathematics and problem-solving assistant. Your task is to analyze the provided document or image content and provide a detailed, well-formatted step-by-step solution.
 
-        Provide the solution in a clear, readable text format. Do NOT use JSON.
-        """
+FORMATTING REQUIREMENTS (CRITICAL - MUST FOLLOW):
+
+1. Use LaTeX math syntax for ALL mathematical expressions:
+   - Inline math: Use $...$ for expressions within text (e.g., $ax^2 + bx + c = 0$)
+   - Display equations: Use $$...$$ on separate lines for important formulas
+   
+2. Structure your response with clear sections:
+   - Start with "## Problem Statement" section
+   - Continue with "## Solution" section
+   - Use "### Step N:" for each major calculation step
+   - End with "## Final Answer" section
+
+3. Formatting guidelines:
+   - Use **bold** for key terms and important values
+   - Use `code` formatting for variables and symbols when not in math mode
+   - Separate each step clearly with blank lines
+   - Use bullet points for supporting information
+   - Keep explanations concise but complete
+
+4. Mathematical content:
+   - Write all equations using LaTeX (both inline and display)
+   - Show ALL intermediate steps clearly
+   - Include units where applicable
+   - Round final answers appropriately
+
+5. Output style:
+   - Make it markdown-compatible
+   - Ensure proper rendering on web/documentation platforms
+   - Be professional and academic in tone
+
+If there are multiple problems, solve each one individually with its own sections.
+If the content is not a solvable problem, state that clearly in a Problem Statement section.
+
+IMPORTANT: Do NOT use JSON. Output pure markdown with LaTeX.
+"""
         
         # Determine how to add the solve prompt to Gemini's input parts
         if mime_type.startswith("image/"):
@@ -222,8 +252,42 @@ def solve_question_endpoint():
         response = model.generate_content(gemini_input_parts)
         gemini_response_text = response.text
         print("DEBUG: Received response from Generative Model.")
+        
+        # Format the response text to preserve line breaks and structure
+        # Keep LaTeX intact while preserving markdown formatting
+        formatted_text = gemini_response_text
+        
+        # Escape HTML special characters except for markdown syntax
+        formatted_text = formatted_text.replace('&', '&amp;').replace('<', '&lt;').replace('>', '&gt;')
+        
+        # Restore LaTeX delimiters (they were escaped)
+        formatted_text = formatted_text.replace('&amp;#36;', '$')  # Restore $ if encoded
+        
+        # Convert line breaks to HTML while preserving markdown structure
+        lines = formatted_text.split('\n')
+        formatted_lines = []
+        for line in lines:
+            formatted_lines.append(line)
+        formatted_text = '<br>'.join(formatted_lines)
+        
+        # Wrap content in a styled div that supports proper markdown and LaTeX rendering
+        # Using monospace font and pre-wrap to preserve formatting
+        html_solution = f"""<div style='
+            background-color: #f8f9fa;
+            padding: 20px;
+            border-radius: 8px;
+            border-left: 5px solid #4CAF50;
+            font-family: "Courier New", "Segoe UI", monospace;
+            line-height: 1.8;
+            color: #333;
+            max-width: 100%;
+            overflow-x: auto;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            font-size: 0.95rem;
+        '>{formatted_text}</div>"""
 
-        return jsonify({"solution": gemini_response_text}), 200
+        return jsonify({"solution": html_solution}), 200
 
     except Exception as e:
         print(f"ERROR: An error occurred during problem solving: {e}")

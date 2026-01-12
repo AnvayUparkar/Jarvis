@@ -1,99 +1,179 @@
-# engine/features.py (EXAMPLE - YOU'LL NEED TO IMPLEMENT ACTUAL HOTWORD LOGIC)
-# This is a placeholder. You'll need to install pvporcupine and pyaudio
-# pip install pvporcupine pyaudio
+"""
+Hotword Detection Module for Jarvis
+====================================
+Provides continuous background listening for the "Jarvis" wake word using Porcupine.
+Activates Jarvis only when the wake word is detected, then returns to passive listening.
+
+Features:
+- Continuous non-blocking listening
+- Detects wake word "Jarvis" using Porcupine (Picovoice)
+- Sends activation signal via queue
+- Includes cooldown to prevent false retriggers
+- Minimal CPU usage with efficient frame processing
+"""
 
 import pvporcupine
 import pyaudio
 import struct
 import os
 import time
-# main.py (MODIFIED for continuous listening)
-import speech_recognition as sr
-import webbrowser
-import pyttsx3
-import requests
-import pygame
-import os
-from gtts import gTTS
-import google.generativeai as google_ai
-from google.oauth2.credentials import Credentials
-from googleapiclient.discovery import build
-from google.auth.transport.requests import Request
-import subprocess
-import pywhatkit as kit
-import re
-import logging
-import pygetwindow as gw
-import pyautogui
-from PIL import Image
-import time
-from urllib.parse import quote
 import threading
-import eel
-import sys
 import queue
-from jarvis_speak import speak
-from token_store import load_token
-import struct
-import threading
-import time
-import subprocess
-import os
-from get_google_contacts import get_contact_number
-from token_store import *
+import sys
 
+# Import Porcupine access key from apikey.py
+try:
+    from apikey import PORCUPINE_ACCESS_KEY
+except ImportError:
+    # Fallback if apikey.py doesn't exist
+    PORCUPINE_ACCESS_KEY = None
 
-# Replace with your Porcupine access key and model path
-# You can get an AccessKey at https://console.picovoice.ai/
-PORCUPINE_ACCESS_KEY = "cjFMSJ+voIyCw/yJdgE7XGglN7zHJSZqs8AnjYa0QJN+m7dkuXlAaQ=="
-# Path to your Porcupine model (.ppn file)
-# Example: os.path.join(os.path.dirname(__file__), 'jarvis_en_windows_v2_1_0.ppn')
-PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Python\JARVIS\Jarvis_en_windows_v3_0_0.ppn" # <--- IMPORTANT: Update this path!
+# Path to Porcupine model file (.ppn)
+# Using the full path to the Jarvis model included in the repository
+PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy\Jarvis\Jarvis_en_windows_v3_0_0.ppn"
+
+# Configuration
+COOLDOWN_SECONDS = 2.0  # Cooldown after activation to prevent false retriggers
+
 
 def hotword(command_queue):
-    print("Hotword listener initialized.")
+    """
+    Continuous hotword detection listener for Jarvis wake word.
+    
+    Args:
+        command_queue: multiprocessing.Queue for sending activation signals to main process
+        
+    This function:
+    - Initializes Porcupine with the Jarvis model
+    - Opens a continuous audio stream
+    - Processes audio frames for hotword detection
+    - Sends "activate_jarvis" signal when wake word is detected
+    - Includes cooldown to prevent rapid re-triggering
+    - Handles cleanup on exit
+    """
+    # Validate access key
+    if not PORCUPINE_ACCESS_KEY:
+        print("[❌ HOTWORD] Fatal error: PORCUPINE_ACCESS_KEY not found in apikey.py")
+        print("[📋 HOTWORD] Please add PORCUPINE_ACCESS_KEY to your apikey.py file")
+        return
+    
+    porcupine = None
+    audio_stream = None
+    pa = None
+    last_activation_time = 0
+    
     try:
+        print("[🎙️ HOTWORD] Initializing Porcupine hotword detector...")
+        
+        # Initialize Porcupine with the Jarvis wake word model
         porcupine = pvporcupine.create(
             access_key=PORCUPINE_ACCESS_KEY,
             keyword_paths=[PORCUPINE_MODEL_PATH]
         )
-
+        
+        print(f"[✅ HOTWORD] Porcupine initialized successfully")
+        print(f"[🎤 HOTWORD] Sample rate: {porcupine.sample_rate} Hz")
+        print(f"[📊 HOTWORD] Frame length: {porcupine.frame_length} samples")
+        
+        # Initialize PyAudio for continuous microphone input
         pa = pyaudio.PyAudio()
         audio_stream = pa.open(
             rate=porcupine.sample_rate,
             channels=1,
             format=pyaudio.paInt16,
             input=True,
-            frames_per_buffer=porcupine.frame_length
+            frames_per_buffer=porcupine.frame_length,
+            input_device_index=None  # Use default input device
         )
-
-        print(f"Listening for hotword '{os.path.basename(PORCUPINE_MODEL_PATH).replace('.ppn', '')}'...")
-
+        
+        print(f"[🎙️ HOTWORD] Audio stream opened, beginning continuous listening for wake word 'Jarvis'...")
+        print(f"[⏱️ HOTWORD] Cooldown period: {COOLDOWN_SECONDS} seconds after detection")
+        
+        # Main listening loop
         while True:
-            pcm = audio_stream.read(porcupine.frame_length)
-            pcm = struct.unpack_from("h" * porcupine.frame_length, pcm)
-
-            keyword_index = porcupine.process(pcm)
-
-            if keyword_index >= 0:
-                print("Hotword detected! Jarvis is now active.")
-                command_queue.put("activate_jarvis") # Send activation signal
-                # Optionally, you might want to pause hotword detection for a bit
-                # or have a more sophisticated state management
-                time.sleep(2) # Prevent immediate re-detection
-                print("Resuming hotword detection...")
-
-    except ImportError:
-        print("Error: pvporcupine, pyaudio, or struct not found. Please install them.")
+            try:
+                # Read audio frame from microphone
+                pcm_data = audio_stream.read(porcupine.frame_length, exception_on_overflow=False)
+                
+                # Unpack binary audio data into PCM samples
+                pcm = struct.unpack_from("h" * porcupine.frame_length, pcm_data)
+                
+                # Process audio frame with Porcupine
+                keyword_index = porcupine.process(pcm)
+                
+                # Check if wake word was detected (keyword_index >= 0)
+                if keyword_index >= 0:
+                    current_time = time.time()
+                    
+                    # Apply cooldown to prevent false retriggers
+                    if current_time - last_activation_time >= COOLDOWN_SECONDS:
+                        print(f"\n[🔊 HOTWORD] ✨ Wake word 'Jarvis' DETECTED! Activating...")
+                        
+                        # Send activation signal to main process via queue
+                        try:
+                            command_queue.put("activate_jarvis", timeout=1)
+                            print(f"[📤 HOTWORD] Activation signal sent to main process")
+                        except queue.Full:
+                            print(f"[⚠️ HOTWORD] Queue is full, activation signal not sent")
+                        
+                        # Update cooldown timestamp
+                        last_activation_time = current_time
+                        
+                        # Brief silence to allow activation to register
+                        time.sleep(0.5)
+                    else:
+                        # Cooldown still active, ignore detection
+                        time_remaining = COOLDOWN_SECONDS - (current_time - last_activation_time)
+                        print(f"[⏳ HOTWORD] Cooldown active ({time_remaining:.1f}s remaining), ignoring detection")
+                
+            except Exception as e:
+                print(f"[⚠️ HOTWORD] Error processing audio frame: {e}")
+                time.sleep(0.1)
+                continue
+    
+    except ImportError as e:
+        print(f"[❌ HOTWORD] Import error - missing required library: {e}")
+        print(f"[📦 HOTWORD] Please install required packages:")
+        print(f"    pip install pvporcupine pyaudio")
+        sys.exit(1)
+        
+    except FileNotFoundError:
+        print(f"[❌ HOTWORD] Porcupine model file not found at: {PORCUPINE_MODEL_PATH}")
+        print(f"[📁 HOTWORD] Please ensure the .ppn file exists at the specified path")
+        sys.exit(1)
+        
     except Exception as e:
-        print(f"Error in hotword detection: {e}")
+        print(f"[❌ HOTWORD] Fatal error in hotword detection: {e}")
+        print(f"[📋 HOTWORD] Error type: {type(e).__name__}")
+        sys.exit(1)
+        
     finally:
-        if 'porcupine' in locals() and porcupine is not None:
-            porcupine.delete()
-        if 'audio_stream' in locals() and audio_stream is not None:
-            audio_stream.close()
-        if 'pa' in locals() and pa is not None:
-            pa.terminate()
+        # Cleanup resources
+        print(f"\n[🧹 HOTWORD] Cleaning up resources...")
+        
+        try:
+            if audio_stream is not None:
+                audio_stream.stop_stream()
+                audio_stream.close()
+                print(f"[✅ HOTWORD] Audio stream closed")
+        except Exception as e:
+            print(f"[⚠️ HOTWORD] Error closing audio stream: {e}")
+        
+        try:
+            if pa is not None:
+                pa.terminate()
+                print(f"[✅ HOTWORD] PyAudio terminated")
+        except Exception as e:
+            print(f"[⚠️ HOTWORD] Error terminating PyAudio: {e}")
+        
+        try:
+            if porcupine is not None:
+                porcupine.delete()
+                print(f"[✅ HOTWORD] Porcupine deleted")
+        except Exception as e:
+            print(f"[⚠️ HOTWORD] Error deleting Porcupine: {e}")
+        
+        print(f"[🛑 HOTWORD] Hotword detection stopped")
 
 
 

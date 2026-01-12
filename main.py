@@ -47,6 +47,8 @@ from google_forms_integration import create_google_form
 import gmail
 from gmail import generate_email_body_with_gemini
 from email.mime.text import MIMEText # NEW: Import for creating email messages
+# NEW: Import activation beep for hotword detection feedback
+from activation_beep import play_activation_beep
 
 
 # Assuming 'speak' function and 'api_data' (for GEN_AI_API_KEY) are accessible
@@ -624,6 +626,8 @@ jarvis_active = False   # This tracks if Jarvis is in an "active" state (hotword
 is_handling_complex_command = False
 # NEW GLOBAL FLAG: To manage the MCQ answering mode
 in_mcq_answer_mode = False
+# NEW GLOBAL FLAG: Auto-sleep mode - Jarvis sleeps 3 seconds after command execution
+SLEEP_MODE = False
 
 pygame.mixer.init()
 
@@ -688,7 +692,13 @@ def listen():
     Adjusts for ambient noise and attempts to recognize speech using Google Speech Recognition.
     If 'Jarvis' is in the command, it removes the wake word.
     Handles timeouts and recognition errors.
+    Also respects SLEEP_MODE - returns empty string if in sleep.
     """
+    global SLEEP_MODE
+    # If in sleep mode, don't listen for commands
+    if SLEEP_MODE:
+        return ""
+    
     r = sr.Recognizer()
     with sr.Microphone(sample_rate=16000) as source:
         print("🎙️ Say your command...")
@@ -710,7 +720,7 @@ def listen():
         # that will be tolerated before the phrase is considered complete.
         # A shorter pause_threshold means it cuts off speech faster after a silence.
         # A longer one allows for more natural pauses in speech but can delay recognition.
-        r.pause_threshold = 1.3 # Use the dynamic threshold passed to the function
+        r.pause_threshold = 2.0 # Increased to allow more listening time after hotword detection
         
         # Set an operation timeout: If no speech is detected within this time,
         # a sr.WaitTimeoutError is raised. This prevents the listener from hanging indefinitely.
@@ -777,7 +787,13 @@ def listen_for_response(dynamic_pause_threshold=1.2): # Default reduced pause th
     """
     Listens for a short response from the user.
     Uses a dynamic pause threshold to allow for quicker responses.
+    Also respects SLEEP_MODE - returns empty string if in sleep.
     """
+    global SLEEP_MODE
+    # If in sleep mode, don't listen for responses
+    if SLEEP_MODE:
+        return ""
+    
     r = sr.Recognizer()
     with sr.Microphone(sample_rate=16000) as source:
         print("🎙️ Awaiting your response...")
@@ -830,7 +846,13 @@ def listen_for_response_answer(dynamic_pause_threshold=1.2): # Default reduced p
     """
     Listens for a short response from the user.
     Uses a dynamic pause threshold to allow for quicker responses.
+    Also respects SLEEP_MODE - returns empty string if in sleep.
     """
+    global SLEEP_MODE
+    # If in sleep mode, don't listen for responses
+    if SLEEP_MODE:
+        return ""
+    
     r = sr.Recognizer()
     with sr.Microphone(sample_rate=16000) as source:
         print("🎙️ Awaiting your response...")
@@ -1416,8 +1438,9 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
             if result.get("solution"):
                 solution_text = result["solution"]
                 speak("I have a solution for the problem. Displaying it now.")
-                # Assuming eel.receiverText is defined and accessible
-                # eel.receiverText(f"<b>Problem Solution:</b><br><br>{solution_text}")
+                # Display the solution to the frontend with proper formatting
+                formatted_solution = f"<div style='background-color: #f0f0f0; padding: 15px; border-radius: 8px; border-left: 4px solid #4CAF50;'><b>📊 Problem Solution:</b><br><br>{solution_text}</div>"
+                eel.receiverText(formatted_solution)
             else:
                 speak(f"File {action_type} failed. No solution received.")
                 print(f"ERROR: File {action_type} response missing 'solution': {result}")
@@ -2906,11 +2929,30 @@ def handle_attendance(command, input_text=None):
         speak("I'm not sure what you mean by that attendance command. Please say 'store attendance', 'download attendance', or 'update attendance'.")
 
 
+# --- Auto-Sleep Timer Function ---
+def schedule_auto_sleep():
+    """
+    Schedules Jarvis to enter sleep mode 5 seconds after command execution.
+    """
+    global SLEEP_MODE
+    def enter_sleep():
+        global SLEEP_MODE
+        SLEEP_MODE = True
+        print("[😴] Auto-sleep: Jarvis entering sleep mode after 5 seconds...")
+        speak("Returning to sleep mode.")
+        eel.HideSiriWave()
+        eel.DisplayMessage("💤 Jarvis is sleeping. Say 'Jarvis' to wake me up.")
+    
+    # Start timer in background thread (non-blocking)
+    timer = threading.Timer(5.0, enter_sleep)
+    timer.daemon = True
+    timer.start()
+
 # --- Process Command Function ---
 def processCommand(c, source_input_text=None): # Added source_input_text parameter
     import re # Explicitly import re within the function to ensure it's bound locally
 
-    global jarvis_active, is_listening, is_handling_complex_command, in_mcq_answer_mode
+    global jarvis_active, is_listening, is_handling_complex_command, in_mcq_answer_mode, SLEEP_MODE
 
     command = c.lower().strip()
     print(f"Processing command: {command}")
@@ -3361,6 +3403,7 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
         jarvis_active = False
         is_listening = False
         in_mcq_answer_mode = False
+        SLEEP_MODE = True
         eel.DisplayMessage("Jarvis is sleeping. Say 'Jarvis' to wake me up.")
         eel.HideSiriWave()
         try:
@@ -3393,6 +3436,9 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
         except Exception as e:
             speak("I am sorry, I am unable to process your request at the moment.")
             logging.error(f"Error in AI processing: {e}")
+    
+    # AUTO-SLEEP: Schedule sleep mode 3 seconds after command execution
+    schedule_auto_sleep()
 
 
 def parse_mcq_from_text(full_text: str):
@@ -3558,6 +3604,24 @@ from flask import Flask, request, jsonify
 eel.init("www")
 
 @eel.expose
+def load_page(page_name):
+    """
+    Navigate to a different page within the Jarvis app.
+    Supported pages: 'home.html', 'index.html'
+    """
+    try:
+        if page_name in ['home.html', 'index.html']:
+            eel.show(page_name)
+            print(f"[✅] Successfully navigated to {page_name}")
+            return {"success": True, "message": f"Loaded {page_name}"}
+        else:
+            print(f"[❌] Invalid page requested: {page_name}")
+            return {"success": False, "message": f"Invalid page: {page_name}"}
+    except Exception as e:
+        print(f"[❌] Error loading page {page_name}: {e}")
+        return {"success": False, "message": str(e)}
+
+@eel.expose
 def receive_file(filename, base64_data):
     print(f"[📎] Receiving file: {filename}")
 
@@ -3638,19 +3702,64 @@ def listen_from_frontend():
 
 
 def hotword_listener_thread(q):
-    global jarvis_active
+    """
+    Background thread that monitors the hotword detection queue.
+    When Jarvis wake word is detected, plays activation beep and listens for command.
+    Exits sleep mode when wake word is detected.
+    """
+    global jarvis_active, SLEEP_MODE
+    print("[🎙️] Hotword listener thread started, monitoring for wake word detection...")
+    
     while True:
         try:
+            # Wait for activation signal from hotword detection process
             message = q.get(timeout=1)
             if message == "activate_jarvis":
-                if not jarvis_active:
-                    print("Jarvis activated by hotword!")
-                    speak("Yes, how can I help you?")
-                    listen_from_frontend()
+                # WAKE UP FROM SLEEP if needed
+                if SLEEP_MODE:
+                    SLEEP_MODE = False
+                    print("[😴 → 🎙️] Jarvis waking up from sleep mode!")
+                
+                print("[✨] Jarvis activated by hotword detection!")
+                
+                # Play activation beep to confirm detection
+                try:
+                    play_activation_beep()
+                except Exception as e:
+                    print(f"[⚠️] Could not play activation beep: {e}")
+                
+                # Brief delay for beep to finish and user to be ready
+                time.sleep(0.3)
+                
+                # Acknowledge activation to user
+                speak("Yes, how can I help you?")
+                
+                # Set jarvis_active so listen() will accept any command
+                jarvis_active = True
+                
+                # Listen for the command directly using listen()
+                command = listen()
+                
+                # Reset jarvis_active after listening
+                jarvis_active = False
+                
+                # Process the command if one was recognized
+                if command:
+                    print(f"[📋] Command received: {command}")
+                    eel.DisplayMessage(f"🎙️ You: {command}")
+                    processCommand(command)
+                    
+                    # After command processing, check auto-sleep
+                    # (schedule_auto_sleep() is called inside processCommand)
+                else:
+                    print("[⏩] No command detected after hotword activation")
+                    
         except queue.Empty:
+            # No message in queue, continue waiting
             pass
         except Exception as e:
-            print(f"Error in hotword listener thread: {e}")
+            print(f"[❌] Error in hotword listener thread: {e}")
+        
         time.sleep(0.1)
 
 def start(command_queue):

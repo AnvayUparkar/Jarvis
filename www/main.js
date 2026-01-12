@@ -81,6 +81,11 @@ function receiverText(responseText) {
     botBubble.innerHTML = `<div class='chat-message jarvis-message'><b>Jarvis:</b><br>${responseText}</div>`;
     area.appendChild(botBubble);
     area.scrollTop = area.scrollHeight;
+    
+    // Re-render MathJax if available (for LaTeX math rendering)
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        MathJax.typesetPromise([botBubble]).catch(err => console.log('MathJax rendering error:', err));
+    }
 }
 
 // ✅ Expose appendUserMessage so Python can use it for spoken commands

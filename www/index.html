@@ -14,7 +14,7 @@
       height: 100%;
       font-family: Arial, sans-serif;
       color: white;
-      background: url('assets/img/futuristic-bg.png') no-repeat center center fixed;
+      background: url('assets/img/Gemini_Generated_Image_jv6atljv6atljv6a.png') no-repeat center center fixed;
       background-size: cover;
       position: relative;
     }
@@ -84,6 +84,7 @@
 
     .glow-circle {
       width: 480px;
+      height: 480px;
       border-radius: 50%;
       padding: 10px;
       margin: 0 auto;
@@ -99,7 +100,8 @@
       transform: translateX(50px);
     }
 
-    .glow-circle img {
+    .glow-circle img,
+    .glow-circle video {
       width: 100%;
       height: 100%;
       border-radius: 50%;
@@ -139,6 +141,20 @@
       padding: 5px;
       /* background: rgba(0, 0, 0, 0.4); */
       border-radius: 10px;
+    }
+
+    .image-container h1,
+    .image-container p {
+      color: white;
+    }
+
+    .input-display {
+      color: white;
+    }
+
+    .input-display h1,
+    .input-display .content {
+      color: white;
     }
 
     #receiverTextArea {
@@ -323,6 +339,22 @@
       }
     };
   </script>
+
+  <!-- MathJax for LaTeX rendering in mathematical solutions -->
+  <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+  <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+  <script>
+    MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']],
+        displayMath: [['$$', '$$'], ['\\[', '\\]']],
+        processEscapes: true
+      },
+      svg: {
+        fontCache: 'global'
+      }
+    };
+  </script>
 </head>
 
 <body>
@@ -332,22 +364,23 @@
     <a href="#" id="goHomeLink" class="navbar-link">← Home</a>
   </div>
   <script>
-    // Robust navigation to Home: if page is loaded via file://, redirect to local Eel server
-    (function() {
-      const goHome = () => {
-        try {
-          if (location.protocol === 'http:' || location.protocol === 'https:') {
-            location.href = location.origin + '/home.html';
-          } else {
-            location.href = 'http://127.0.0.1:8000/home.html';
-          }
-        } catch (e) {
-          location.href = 'http://127.0.0.1:8000/home.html';
-        }
-      };
-      const el = document.getElementById('goHomeLink');
-      if (el) el.addEventListener('click', (ev) => { ev.preventDefault(); goHome(); });
-    })();
+    // ===== FIXED NAVIGATION FUNCTIONALITY =====
+    function navigateToPage(pageName) {
+      console.log(`Navigating to ${pageName}...`);
+      // Simply change the window location to navigate within the same tab
+      window.location.href = pageName;
+    }
+
+    // Navigate to Home (same tab only)
+    document.addEventListener('DOMContentLoaded', function() {
+      const goHomeLink = document.getElementById('goHomeLink');
+      if (goHomeLink) {
+        goHomeLink.addEventListener('click', (ev) => {
+          ev.preventDefault();
+          navigateToPage('home.html');
+        });
+      }
+    });
   </script>
 
   <div class="container">
@@ -355,7 +388,10 @@
   <section class="main-content">
     <div class="image-container text-center">
       <div class="glow-circle mt-4">
-        <img src="https://raw.githubusercontent.com/Arun020/Jarvis-AI/main/giphy.gif" alt="Jarvis" />
+        <video autoplay muted loop playsinline>
+          <source src="assets/img/Iron_Man_Hologram_Video_Generation.mp4" type="video/mp4" />
+          Your browser does not support the video tag.
+        </video>
       </div>
       <h1>J A R V I S</h1>
       <p>I'm a Virtual Assistant. How may I help you?</p>
@@ -414,7 +450,7 @@
                 left: 0;
                 z-index: 999;
             ">
-                <img src="assets/img/Initializing.gif" alt="Side Info" style="width: 300px; height: auto; border-radius: 10px;" />
+                <!-- <img src="assets/img/Initializing.gif" alt="Side Info" style="width: 300px; height: auto; border-radius: 10px;" /> -->
             </div>
     </div>
 
@@ -594,3 +630,22 @@
   </script>
 </body>
 </html>
+xt", "showImage", "hideImage"]
+      .forEach(stub);
+
+    // --- Navigation Logic ---
+    const goHomeLinkNavbar = document.getElementById('goHome');
+    if (goHomeLinkNavbar) {
+      goHomeLinkNavbar.addEventListener('click', (e) => {
+        e.preventDefault();
+        safeRedirectTo('home.html');
+      });
+    }
+
+    const goHomeLinkArrow = document.getElementById('goHomeLink');
+    if (goHomeLinkArrow) {
+      goHomeLinkArrow.addEventListener('click', (e) => {
+        e.preventDefault();
+        safeRedirectTo('home.html');
+      });
+    }
