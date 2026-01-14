@@ -163,283 +163,326 @@ def get_google_credentials():
 # --- Gemini Function to Get Slide Content ---
 # This function is now primarily handled by the presentation.py Flask app.
 # It's kept here for handle_presentation_command which generates from a topic.
+# --- Gemini Function to Get Slide Content AND Theme ---
 def get_slide_content(topic, speak):
     """
-    Generates presentation slide content using Google Gemini with much more detailed information.
-    Instructs Gemini to return only JSON in a specific format for up to 6 slides,
-    with more extensive headings and content for each slide.
-    The content for each slide will directly support and elaborate on its heading.
-    'speak' is passed to allow this module to use Jarvis's voice output.
+    Generates presentation slide content AND selects a visual theme using Google Gemini.
+    Returns: (theme_string, slides_list)
     """
     prompt = f"""Create a 6-slide presentation about {topic}.
-    For each slide, provide a very descriptive and detailed heading.
-    For the content of each slide, provide at least 5-7 comprehensive bullet points. Each bullet point should be a detailed sentence or phrase, and the content MUST DIRECTLY SUPPORT AND ELABORATE ON THE SLIDE'S HEADING.
-    Provide ONLY JSON, which should be an array of objects. Each object represents a slide and must have "heading" and "content" keys.
-    The "content" should be a list of detailed bullet points (strings).
-    Example format:
-    [
-        {{"heading": "Introduction: A Deep Dive into the Fundamental Concepts of {topic}", "content": ["Explore the foundational principles and key definitions that underpin {topic}'s complexity.", "Discuss the historical context and evolution of {topic} through significant milestones and discoveries.", "Analyze the core components and mechanisms that drive {topic}'s operations, providing intricate details.", "Highlight the interdisciplinary nature of {topic} and its connections to related fields of study.", "Outline the primary objectives and learning outcomes of this presentation, setting clear expectations." ]}},
-        {{... up to 6 slides with highly detailed headings and 5-7 extensive bullet points each ...}}
-    ]
-    Ensure the JSON is well-formed and does not contain any additional text or markdown outside the JSON block.
+    
+    1. Analyze the topic to decide the Visual Theme:
+       - If it is about AI, Coding, Cyber Security, Gaming, Space, or Future Tech, choose "TECH_DARK".
+       - If it is about Business, Finance, Education, History, or General topics, choose "PROFESSIONAL_LIGHT".
+    
+    2. For each slide, provide a descriptive heading and 5-7 detailed content bullet points.
+
+    3. Provide ONLY JSON in the following format:
+    {{
+        "theme": "TECH_DARK" or "PROFESSIONAL_LIGHT",
+        "slides": [
+            {{"heading": "Slide 1 Title", "content": ["Point 1...", "Point 2..."]}},
+            ...
+        ]
+    }}
     """
-    print(f"🧠 Asking Gemini for content on: {topic}")
-    speak(f"Thinking about detailed content for {topic}...")
+    print(f"🧠 Asking Gemini for content and theme on: {topic}")
+    speak(f"Thinking about content and visual style for {topic}...")
     try:
-        # Changed model from 'gemini-pro' to 'gemini-2.5-flash' for better availability
         model = google_ai.GenerativeModel("gemini-2.5-flash") 
         response = model.generate_content(prompt)
-        
         json_string = response.text.strip()
+        
         if json_string.startswith("```json"):
             json_string = json_string[7:].strip()
         if json_string.endswith("```"):
             json_string = json_string[:-3].strip()
 
-        slides_data = json.loads(json_string)
+        data = json.loads(json_string)
+        
+        theme = data.get("theme", "PROFESSIONAL_LIGHT")
+        slides = data.get("slides", [])[:6]
+        
+        return theme, slides
 
-        if not isinstance(slides_data, list):
-            raise ValueError("Gemini response is not a list of slides.")
-        for slide in slides_data:
-            if not isinstance(slide, dict) or "heading" not in slide or "content" not in slide:
-                raise ValueError("Each slide in Gemini response must be an object with 'heading' and 'content' (list of strings).")
-            if not isinstance(slide["content"], list) or not all(isinstance(item, str) for item in slide["content"]):
-                raise ValueError("'content' must be a list of strings for each slide.")
-
-        print("✅ Gemini content generated and parsed successfully.")
-        return slides_data[:6]
-    except json.JSONDecodeError as e:
-        print(f"❌ Error parsing JSON from Gemini: {e}")
-        speak("I had trouble understanding the content from Gemini. The format might be incorrect.")
-        return None
     except Exception as e:
-        print(f"❌ An unexpected error occurred with Gemini: {e}")
-        speak("I encountered an issue while generating content with AI.")
-        return None
+        print(f"❌ Error parsing JSON from Gemini: {e}")
+        speak("I had trouble understanding the content from Gemini.")
+        return "PROFESSIONAL_LIGHT", None
 
+# --- NANO BANANA VISUAL ENHANCEMENT LAYER (Add to main.py) ---
+# --- NANO BANANA VISUAL ENHANCEMENT LAYER ---
+def apply_nano_banana_style(slide_id, title_id, body_id, theme="PROFESSIONAL_LIGHT", is_title_slide=False):
+    """
+    Generates Google Slides API requests based on the selected theme.
+    """
+    requests = []
+
+    # --- DEFINE PALETTES BASED ON THEME ---
+    if theme == "TECH_DARK":
+        # Style: Futuristic, AI, Dark Mode (Deep Navy / Neon)
+        bg_color = {'red': 0.05, 'green': 0.08, 'blue': 0.15} # Deep Midnight Blue
+        title_color = {'red': 1.0, 'green': 1.0, 'blue': 1.0} # White
+        body_color = {'red': 0.9, 'green': 0.9, 'blue': 0.95} # Off-White
+        accent_color = {'red': 0.0, 'green': 0.8, 'blue': 1.0} # Neon Cyan
+        accent_alpha = 0.8
+        font_title = 'Montserrat'
+        font_body = 'Roboto'
+    else: 
+        # Style: Business, Clean, Professional (Light Mode)
+        bg_color = {'red': 1.0, 'green': 1.0, 'blue': 1.0} # Pure White
+        title_color = {'red': 0.1, 'green': 0.1, 'blue': 0.3} # Dark Navy Text
+        body_color = {'red': 0.25, 'green': 0.25, 'blue': 0.25} # Dark Grey Text
+        accent_color = {'red': 0.1, 'green': 0.2, 'blue': 0.5} # Professional Blue
+        accent_alpha = 1.0
+        font_title = 'Arial'
+        font_body = 'Open Sans'
+
+    # 1. VISUALS: Background Color
+    requests.append({
+        'updatePageProperties': {
+            'objectId': slide_id,
+            'pageProperties': {
+                'pageBackgroundFill': {
+                    'propertyState': 'RENDERED',
+                    'solidFill': {
+                        'color': {'rgbColor': bg_color}
+                    }
+                }
+            },
+            'fields': 'pageBackgroundFill'
+        }
+    })
+
+    # 2. SHAPES: Accent Sidebar/Shape
+    accent_shape_id = f"accent_{slide_id}"
+    requests.append({
+        'createShape': {
+            'objectId': accent_shape_id,
+            'shapeType': 'RECTANGLE',
+            'elementProperties': {
+                'pageObjectId': slide_id,
+                'size': {
+                    'width': {'magnitude': 150000, 'unit': 'EMU'}, 
+                    'height': {'magnitude': 6000000, 'unit': 'EMU'} 
+                },
+                'transform': {
+                    'scaleX': 1, 'scaleY': 1,
+                    'translateX': 350000, 'translateY': 0, 'unit': 'EMU'
+                }
+            }
+        }
+    })
+    
+    # --- FIX IS HERE: alpha moved inside solidFill ---
+    requests.append({
+        'updateShapeProperties': {
+            'objectId': accent_shape_id,
+            'shapeProperties': {
+                'shapeBackgroundFill': {
+                    'solidFill': {
+                        'color': {'rgbColor': accent_color},
+                        'alpha': accent_alpha  # Correct placement
+                    }
+                },
+                'outline': {'propertyState': 'NOT_RENDERED'}
+            },
+            'fields': 'shapeBackgroundFill,outline'
+        }
+    })
+
+    # 3. TYPOGRAPHY: Styling
+    requests.append({
+        'updateTextStyle': {
+            'objectId': title_id,
+            'style': {
+                'foregroundColor': {'opaqueColor': {'rgbColor': title_color}},
+                'bold': True,
+                'fontFamily': font_title, 
+                'fontSize': {'magnitude': 42 if is_title_slide else 32, 'unit': 'PT'}
+            },
+            'fields': 'foregroundColor,bold,fontFamily,fontSize'
+        }
+    })
+
+    if body_id:
+        requests.append({
+            'updateTextStyle': {
+                'objectId': body_id,
+                'style': {
+                    'foregroundColor': {'opaqueColor': {'rgbColor': body_color}},
+                    'fontFamily': font_body,
+                    'fontSize': {'magnitude': 14, 'unit': 'PT'}
+                },
+                'fields': 'foregroundColor,fontFamily,fontSize'
+            }
+        })
+
+    return requests
 # --- Google Slides API Function to Create Presentation ---
 # This function is now primarily handled by the presentation.py Flask app.
 # It's kept here for handle_presentation_command which generates from a topic.
-def create_google_presentation(topic, slides_content, speak):
+def create_google_presentation(topic, slides_content, speak, theme="PROFESSIONAL_LIGHT"):
     """
     Creates a new Google Slides presentation and populates it with content.
-    'speak' is passed to allow this module to use Jarvis's voice output.
+    Applies Nano Banana styling based on the theme.
     """
-    creds = get_google_credentials() # Auth happens every time
+    creds = get_google_credentials()
     if not creds:
-        speak("Failed to authenticate with Google. Cannot create presentation.")
-        print("❌ Failed to get Google credentials. Cannot create presentation.")
+        speak("Failed to authenticate with Google.")
         return None
 
     try:
         service = build('slides', 'v1', credentials=creds)
         
-        presentation_title = f"{topic} - Jarvis Generated Presentation"
-        body = {
-            'title': presentation_title
-        }
-        # Create a new presentation
+        presentation_title = f"{topic} - Jarvis Generated ({theme})"
+        body = {'title': presentation_title}
         presentation = service.presentations().create(body=body).execute()
         presentation_id = presentation.get('presentationId')
-        speak(f"Creating a new presentation titled {presentation_title}.")
-        print(f"✅ Created presentation with ID: {presentation_id}")
+        speak(f"Creating a {theme.lower().replace('_', ' ')} style presentation titled {presentation_title}.")
 
         requests_batch = []
 
-        # --- Step 1: Delete the default first slide ---
-        # Get the ID of the automatically created first slide
-        initial_presentation_get = service.presentations().get(presentationId=presentation_id).execute()
-        initial_slide_id = initial_presentation_get['slides'][0]['objectId'] if initial_presentation_get['slides'] else None
-        
-        if initial_slide_id:
-            requests_batch.append({
-                'deleteObject': {
-                    'objectId': initial_slide_id
-                }
-            })
-            print(f"Added request to delete default initial slide: {initial_slide_id}")
-        else:
-            print("No default initial slide found to delete.") # Should rarely happen
+        # 1. Delete default slide
+        initial = service.presentations().get(presentationId=presentation_id).execute()
+        if initial.get('slides'):
+            requests_batch.append({'deleteObject': {'objectId': initial['slides'][0]['objectId']}})
 
+        # --- MAIN TITLE SLIDE ---
+        main_title_slide_id = str(uuid.uuid4())
+        main_title_textbox_id = str(uuid.uuid4())
 
-        # --- Step 2: Add the main Title Slide (first slide of the presentation) ---
-        main_title_slide_id = str(uuid.uuid4()) # Unique ID for our main title slide
-        main_title_textbox_id = str(uuid.uuid4()) # Unique ID for the title textbox
-
+        # A. Create Slide
         requests_batch.append({
             'createSlide': {
                 'objectId': main_title_slide_id,
-                'slideLayoutReference': {
-                    'predefinedLayout': 'TITLE' # Use a layout with a main title area
-                }
+                'slideLayoutReference': {'predefinedLayout': 'BLANK'}
             }
         })
-        
-        # Create a text box for the main title on this new slide
+
+        # B. Create Text Box (MUST happen before styling)
         requests_batch.append({
             'createShape': {
-                'objectId': main_title_textbox_id, # Or TITLE placeholder type
+                'objectId': main_title_textbox_id,
                 'shapeType': 'TEXT_BOX', 
                 'elementProperties': {
                     'pageObjectId': main_title_slide_id,
-                    'size': {
-                        'width': {'magnitude': 9000000, 'unit': 'EMU'}, # 9M EMU = 900pt
-                        'height': {'magnitude': 1000000, 'unit': 'EMU'}
-                    },
-                    'transform': {
-                        'scaleX': 1, 'scaleY': 1, 'shearX': 0, 'shearY': 0, 'translateX': 500000, 'translateY': 1000000, 'unit': 'EMU'
-                    }
+                    'size': {'width': {'magnitude': 8000000, 'unit': 'EMU'}, 'height': {'magnitude': 2000000, 'unit': 'EMU'}},
+                    'transform': {'scaleX': 1, 'scaleY': 1, 'translateX': 750000, 'translateY': 2500000, 'unit': 'EMU'}
                 }
-            }
-        })
-
-        # Insert text into the main title text box
-        requests_batch.append({
-            'insertText': {
-                'objectId': main_title_textbox_id, # Target the TEXT BOX ID
-                'insertionIndex': 0,
-                'text': presentation_title
             }
         })
         
-        # --- Step 3: Add content slides based on Gemini's output ---
-        for i, slide in enumerate(slides_content):
-            current_slide_id = str(uuid.uuid4()) # Unique ID for each new content slide
-            title_textbox_id = str(uuid.uuid4()) # Unique ID for slide title textbox
-            body_textbox_id = str(uuid.uuid4()) # Unique ID for slide body textbox
+        # C. Insert Text
+        requests_batch.append({
+            'insertText': {'objectId': main_title_textbox_id, 'insertionIndex': 0, 'text': presentation_title}
+        })
 
-            # Create a new slide for content
+        # D. Apply Styling (Now safe because objects exist)
+        if ENABLE_NANO_BANANA:
+            requests_batch.extend(apply_nano_banana_style(
+                main_title_slide_id, main_title_textbox_id, None, theme=theme, is_title_slide=True
+            ))
+
+        # --- CONTENT SLIDES ---
+        for i, slide in enumerate(slides_content):
+            current_slide_id = str(uuid.uuid4())
+            title_textbox_id = str(uuid.uuid4())
+            body_textbox_id = str(uuid.uuid4())
+
+            # A. Create Slide
             requests_batch.append({
                 'createSlide': {
                     'objectId': current_slide_id,
-                    'slideLayoutReference': {
-                        'predefinedLayout': 'BLANK' # Changed from 'TITLE_AND_BODY' to 'BLANK'
-                    }
+                    'slideLayoutReference': {'predefinedLayout': 'BLANK'}
                 }
             })
 
-            # Create a text box for the slide title
+            # B. Create Title Box
             requests_batch.append({
                 'createShape': {
                     'objectId': title_textbox_id,
                     'shapeType': 'TEXT_BOX',
                     'elementProperties': {
-                        'pageObjectId': current_slide_id, # Link to the current slide
-                        'size': {
-                            'width': {'magnitude': 9000000, 'unit': 'EMU'},
-                            'height': {'magnitude': 1000000, 'unit': 'EMU'}
-                        },
-                        'transform': {
-                            'scaleX': 1, 'scaleY': 1, 'shearX': 0, 'shearY': 0, 
-                            'translateX': 500000, 'translateY': 500000, 'unit': 'EMU'
-                        }
+                        'pageObjectId': current_slide_id,
+                        'size': {'width': {'magnitude': 8500000, 'unit': 'EMU'}, 'height': {'magnitude': 1000000, 'unit': 'EMU'}},
+                        'transform': {'scaleX': 1, 'scaleY': 1, 'translateX': 550000, 'translateY': 350000, 'unit': 'EMU'}
                     }
                 }
             })
-
-            # Insert heading into the title text box
+            slide_title = slide.get("heading") or f"Slide {i+1}"
             requests_batch.append({
-                'insertText': {
-                    'objectId': title_textbox_id, # Target the TEXT BOX ID
-                    'insertionIndex': 0,
-                    'text': slide["heading"]
-                }
+                'insertText': {'objectId': title_textbox_id, 'insertionIndex': 0, 'text': slide_title}
             })
             
-            # Create a text box for the body content
+            # C. Create Body Box
             requests_batch.append({
                 'createShape': {
                     'objectId': body_textbox_id,
                     'shapeType': 'TEXT_BOX',
                     'elementProperties': {
-                        'pageObjectId': current_slide_id, # Link to the current slide
-                        'size': {
-                            'width': {'magnitude': 9000000, 'unit': 'EMU'},
-                            'height': {'magnitude': 4000000, 'unit': 'EMU'}
-                        },
-                        'transform': {
-                            'scaleX': 1, 'scaleY': 1, 'shearX': 0, 'shearY': 0, 
-                            'translateX': 500000, 'translateY': 1500000, 'unit': 'EMU'
-                        }
+                        'pageObjectId': current_slide_id,
+                        'size': {'width': {'magnitude': 8500000, 'unit': 'EMU'}, 'height': {'magnitude': 4000000, 'unit': 'EMU'}},
+                        'transform': {'scaleX': 1, 'scaleY': 1, 'translateX': 550000, 'translateY': 1500000, 'unit': 'EMU'}
                     }
                 }
             })
-
-            content_text = "\n".join([f"• {item}" for item in slide["content"]])
+            content_text = "\n".join([f"• {item}" for item in slide.get("content", [])])
             requests_batch.append({
-                'insertText': {
-                    'objectId': body_textbox_id, # Target the TEXT BOX ID
-                    'insertionIndex': 0,
-                    'text': content_text
-                }
+                'insertText': {'objectId': body_textbox_id, 'insertionIndex': 0, 'text': content_text}
             })
             
-            # Apply bullet point formatting
-            if slide["content"] and isinstance(slide["content"], list):
+            if content_text:
                 requests_batch.append({
                     'createParagraphBullets': {
-                        'objectId': body_textbox_id, # Target the TEXT BOX ID
+                        'objectId': body_textbox_id,
                         'textRange': {'type': 'ALL'},
-                        'bulletPreset': 'BULLET_DISC_CIRCLE_SQUARE' # Corrected field: use bulletPreset
+                        'bulletPreset': 'BULLET_DISC_CIRCLE_SQUARE'
                     }
                 })
 
-        # Execute all batch requests
+            # D. Apply Styling (Now safe because objects exist)
+            if ENABLE_NANO_BANANA:
+                requests_batch.extend(apply_nano_banana_style(
+                    current_slide_id, title_textbox_id, body_textbox_id, theme=theme
+                ))
+
+        # Execute
         if requests_batch:
             service.presentations().batchUpdate(
-                presentationId=presentation_id,
-                body={'requests': requests_batch}
+                presentationId=presentation_id, body={'requests': requests_batch}
             ).execute()
-            print("✅ Slides populated successfully.")
-        else:
-            print("No slides content provided by Gemini.")
+            print(f"✅ Slides created successfully with {theme} theme.")
+        
+        return f"https://docs.google.com/presentation/d/{presentation_id}/edit"
 
-        editor_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
-        return editor_url
-
-    except HttpError as err:
-        print(f"❌ Google Slides API Error: {err}")
-        speak(f"An error occurred with the Google Slides API: {err.resp.status}. Please check permissions.")
-        if err.resp.status == 400:
-            print("Error 400: Bad Request. Check your request payload and object IDs.")
-            # Corrected: Access content using err.content and decode it
-            print(f"Response: {err.content.decode('utf-8')}")
-        elif err.resp.status == 403:
-            print("Error 403: Permissions issue. Ensure Google Drive and Slides APIs are enabled and correct scopes are granted.")
-        elif err.resp.status == 404:
-            print("Error 404: Resource not found.")
-        return None
     except Exception as e:
-        print(f"❌ An unexpected error occurred while interacting with Google Slides: {e}")
-        speak("I encountered an unexpected issue while creating the presentation.")
+        print(f"❌ Error creating presentation: {e}")
+        speak("I encountered an issue while creating the presentation.")
         return None
-
+    
 # --- Jarvis Command Integration for Presentations ---
 def handle_presentation_command(command, speak):
-    """
-    Processes a command to generate and create a presentation.
-    'speak' is passed to allow this module to use Jarvis's voice output.
-    """
     if "generate presentation on" in command.lower():
         topic = command.lower().replace("generate presentation on", "").strip()
         if not topic:
-            speak("Please specify a topic for the presentation. Example: 'generate presentation on quantum physics'")
+            speak("Please specify a topic.")
             return
 
-        slides_content = get_slide_content(topic, speak)
+        # Unpack Theme AND Content
+        theme, slides_content = get_slide_content(topic, speak)
+        
         if slides_content:
-            print(f"🎨 Creating Google Slides presentation for topic: {topic}")
-            url = create_google_presentation(topic, slides_content, speak)
+            print(f"🎨 Creating {theme} style presentation for: {topic}")
+            url = create_google_presentation(topic, slides_content, speak, theme=theme)
             if url:
-                speak("Google Slides presentation generated successfully. Opening it in your browser.")
-                webbrowser.open(url) # This line should be handled by main.py
+                speak("Presentation generated successfully. Opening it now.")
+                webbrowser.open(url)
             else:
                 speak("Sorry, I failed to create the Google Slides presentation.")
         else:
-            speak("Sorry, I could not generate content for the presentation from Gemini.")
-    else:
-        print("Unrecognized presentation command within handle_presentation_command.")
-
+            speak("Sorry, I could not generate content for the presentation.")
+            
 # Function to explicitly perform Google authentication (e.g., for an 'auth' command)
 def authenticate_google_slides(speak):
     """
@@ -628,7 +671,7 @@ is_handling_complex_command = False
 in_mcq_answer_mode = False
 # NEW GLOBAL FLAG: Auto-sleep mode - Jarvis sleeps 3 seconds after command execution
 SLEEP_MODE = False
-
+ENABLE_NANO_BANANA = True  # Global flag to enable/disable Nano Banana styling
 pygame.mixer.init()
 
 # Spotify API credentials (commented out as per your original code)
@@ -1198,19 +1241,17 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         else:
             speak(f"I don't have a file to process for '{action_type}' right now. Please upload one.")
             return
+    
     elif action_type == "presentation generation":
-        if last_uploaded_file:
-            flask_url = selected_command_info["url"]
-            payload = {
-                "file_data": last_uploaded_file["base64_content"],
-                "filename": last_uploaded_file["filename"],
-                "mime_type": last_uploaded_file["mime_type"]
-            }
-            payload["use_template"] = False
-            payload["template_id"] = None
+        if result.get("presentation_url"):
+            presentation_url = result["presentation_url"]
+            # Check if theme was returned by Flask
+            theme_used = result.get("theme_used", "Standard") 
+            speak(f"Google Slides presentation generated with {theme_used} theme. Opening it now.")
+            webbrowser.open(presentation_url)
         else:
-            speak(f"I don't have a file to process for '{action_type}' right now. Please upload one.")
-            return
+            speak(f"File {action_type} failed. No presentation URL received.")
+    
     elif action_type == "problem solving":
         if last_uploaded_file:
             flask_url = selected_command_info["url"]
