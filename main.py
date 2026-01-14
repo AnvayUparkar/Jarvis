@@ -6,6 +6,10 @@ import requests
 import pygame
 import os
 import base64 # Added import for base64 decoding
+import threading
+import queue
+from concurrent.futures import ThreadPoolExecutor
+from metrics import Watchdog # New resilience module
 import json # Added import for JSON decoding
 from gtts import gTTS # Corrected import for gTTS
 import google.generativeai as google_ai
@@ -41,6 +45,21 @@ from google.auth.transport.requests import Request # Already imported at top
 from google.oauth2.credentials import Credentials # Already imported at top
 from google_auth_oauthlib.flow import InstalledAppFlow # Will be used directly in auth functions
 from googleapiclient.discovery import build
+import socket
+
+# --- [Network Safety] ---
+def safe_request(method, url, **kwargs):
+    """
+    Wrapper for requests with mandatory timeout and error handling.
+    """
+    kwargs.setdefault('timeout', 10) # 10s default timeout
+    try:
+        response = requests.request(method, url, **kwargs)
+        response.raise_for_status()
+        return response
+    except requests.exceptions.RequestException as e:
+        print(f"[❌ NETWORK] Request to {url} failed: {e}")
+        return None
 # NEW: Import the create_google_form function from the integration file
 from google_forms_integration import create_google_form
 # NEW: Import the generate_formal_email_draft function from gmail.py
@@ -691,42 +710,100 @@ except Exception as e:
 # Global variable to hold the multiprocessing queue
 hotword_queue = None
 
+# --- [ThreadPool & Watchdog Setup] ---
+command_executor = ThreadPoolExecutor(max_workers=3) # Pool for handling commands
+watchdog = Watchdog()
+
+# --- [Non-Blocking Speech Engine] ---
+class SpeechEngine:
+    def __init__(self):
+        self.queue = queue.Queue()
+        self.ended = False
+        self.thread = threading.Thread(target=self._run_loop, daemon=True, name="SpeechEngine")
+        self.thread.start()
+        
+    def _run_loop(self):
+        print("[🔊 SPEECH] Engine started.")
+        while not self.ended:
+            watchdog.touch("SpeechEngine")
+            try:
+                # Wait for a text item to speak
+                item = self.queue.get(timeout=2)
+                text, block_event = item
+                
+                self._speak_impl(text)
+                
+                if block_event:
+                    block_event.set()
+                    
+                self.queue.task_done()
+            except queue.Empty:
+                continue
+            except Exception as e:
+                print(f"[❌ SPEECH] Critical error: {e}")
+                
+    def _speak_impl(self, text):
+        global is_speaking
+        is_speaking = True
+        filename = f"speech_{uuid.uuid4().hex}.mp3"
+        try:
+            voices = engine.getProperty('voices')
+            engine.setProperty('voice', voices[0].id)
+            engine.setProperty('rate', 174)
+
+            # Try gTTS first
+            try:
+                tts = gTTS(text=text, lang='en', slow=False)
+                tts.save(filename)
+                pygame.mixer.music.load(filename)
+                pygame.mixer.music.play()
+                while pygame.mixer.music.get_busy():
+                    pygame.time.Clock().tick(10)
+                pygame.mixer.music.stop()
+                pygame.mixer.music.unload()
+                if os.path.exists(filename):
+                    os.remove(filename)
+            except Exception as e:
+                print(f"[⚠️ SPEECH] gTTS error: {e}")
+                # Fallback to pyttsx3
+                engine.say(text)
+                engine.runAndWait()
+                
+        except Exception as e:
+            print(f"[❌ SPEECH] TTS Error: {e}")
+        finally:
+            is_speaking = False
+
+    def speak(self, text, block=False):
+        """
+        Queue text to be spoken.
+        If block=True, waits until the speech is finished.
+        """
+        print(f"Jarvis: {text}")
+        
+        # Update UI immediately
+        try:
+            if hasattr(eel, 'DisplayMessage') and callable(eel.DisplayMessage):
+                eel.DisplayMessage(str(text))
+            if hasattr(eel, 'receiverText') and callable(eel.receiverText):
+                eel.receiverText(str(text))
+        except Exception as e:
+            print(f"Error updating Eel display: {e}")
+            
+        event = threading.Event() if block else None
+        self.queue.put((text, event))
+        
+        if block:
+            event.wait()
+
+# Initialize global instance
+speech_engine = SpeechEngine()
+
 @eel.expose
 def speak(text):
-    global is_speaking
-    is_speaking = True
-    print(f"Jarvis: {text}")
+    """Proxy function to maintain compatibility."""
+    speech_engine.speak(text, block=False)
 
-    text = str(text)
-    try:
-        if hasattr(eel, 'DisplayMessage') and callable(eel.DisplayMessage):
-            eel.DisplayMessage(text)
-        if hasattr(eel, 'receiverText') and callable(eel.receiverText):
-            eel.receiverText(text)
-    except Exception as e:
-        print(f"Error updating Eel display: {e}")
-
-    try:
-        voices = engine.getProperty('voices')
-        engine.setProperty('voice', voices[0].id)
-        engine.setProperty('rate', 174)
-
-        tts = gTTS(text=text, lang='en', slow=False)
-        tts.save("response.mp3")
-        pygame.mixer.music.load("response.mp3")
-        pygame.mixer.music.play()
-        while pygame.mixer.music.get_busy():
-            pygame.time.Clock().tick(10)
-        pygame.mixer.music.stop()
-        pygame.mixer.quit()
-        pygame.mixer.init()
-        if os.path.exists("response.mp3"):
-            os.remove("response.mp3")
-    except Exception as e:
-        print(f"Error in speak function (gTTS/pygame): {e}. Falling back to pyttsx3.")
-        engine.say(text)
-        engine.runAndWait()
-    is_speaking = False
 
 # --- [Fine-Tuned listen()] ---
 def listen():
@@ -793,7 +870,15 @@ def listen():
         # Attempt to recognize the audio using Google Speech Recognition
         # 'en-IN' is good for Indian English accents.
         print("Recognizing speech...")
-        command = r.recognize_google(audio, language='en-IN')
+        
+        # Enforce strict socket timeout for recognition to prevent hangs
+        original_timeout = socket.getdefaulttimeout()
+        socket.setdefaulttimeout(10)
+        try:
+            command = r.recognize_google(audio, language='en-IN')
+        finally:
+            socket.setdefaulttimeout(original_timeout)
+            
         print(f"Recognized command: {command}")
         eel.HideTyping() # Hide typing indicator after recognition
 
@@ -818,6 +903,10 @@ def listen():
         print(f"❌ API error during recognition: {e}")
         eel.DisplayMessage("Sorry, there was an API error connecting to Google Speech Recognition.")
         return ""
+    except socket.timeout:
+         eel.HideTyping()
+         print("❌ Recognition timed out.")
+         return ""
     except Exception as e:
         eel.HideTyping()
         print(f"An unexpected error occurred during recognition: {e}")
@@ -3752,6 +3841,7 @@ def hotword_listener_thread(q):
     print("[🎙️] Hotword listener thread started, monitoring for wake word detection...")
     
     while True:
+        watchdog.touch("HotwordListener")
         try:
             # Wait for activation signal from hotword detection process
             message = q.get(timeout=1)
@@ -3765,16 +3855,12 @@ def hotword_listener_thread(q):
                 
                 # Play activation beep to confirm detection
                 try:
-                    play_activation_beep()
+                    # activation_beep.play() # Assuming this function exists or use speech
+                    speak("Yes?")
                 except Exception as e:
                     print(f"[⚠️] Could not play activation beep: {e}")
                 
-                # Brief delay for beep to finish and user to be ready
-                time.sleep(0.3)
-                
-                # Acknowledge activation to user
-                speak("Yes, how can I help you?")
-                
+               
                 # Set jarvis_active so listen() will accept any command
                 jarvis_active = True
                 
@@ -3788,7 +3874,11 @@ def hotword_listener_thread(q):
                 if command:
                     print(f"[📋] Command received: {command}")
                     eel.DisplayMessage(f"🎙️ You: {command}")
-                    processCommand(command)
+                    
+                    # OFF-LOAD TO THREAD POOL
+                    # This is critical: The listener returns immediately to be ready 
+                    # for the next hotword while the command processes in background.
+                    command_executor.submit(processCommand, command)
                     
                     # After command processing, check auto-sleep
                     # (schedule_auto_sleep() is called inside processCommand)
@@ -3801,7 +3891,9 @@ def hotword_listener_thread(q):
         except Exception as e:
             print(f"[❌] Error in hotword listener thread: {e}")
         
+        # Avoid busy loop if queue logic fails
         time.sleep(0.1)
+
 
 def start(command_queue):
     global hotword_queue
@@ -3813,10 +3905,21 @@ def start(command_queue):
 
     threading.Thread(target=hotword_listener_thread, args=(hotword_queue,), daemon=True).start()
 
-    eel.start('home.html', size=(1000, 800), block=False)
+    # Start eel with a custom close_callback to prevent app exit on window close
+    # block=False is required for the loop below to run
+    try:
+        eel.start('home.html', size=(1000, 800), block=False, close_callback=lambda x, y: None)
+    except SystemExit:
+        pass # Handle potential SystemExit from eel if it can't launch
+    except Exception as e:
+        print(f"[⚠️ UI] Could not start GUI (non-fatal): {e}")
 
     while True:
-        eel.sleep(1.0)
+        try:
+             eel.sleep(1.0)
+        except Exception:
+             # Fallback if Eel sleep fails (e.g., no websockets)
+             time.sleep(1.0)
 
 
 peer_agent_app = Flask("peer_agent")
