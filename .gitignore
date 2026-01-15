@@ -8,7 +8,7 @@ __pycache__/
 dist/
 build/
 *.spec
-
+venv/
 
 # Virtualenv
 envjarvis/

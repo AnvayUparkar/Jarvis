@@ -15,7 +15,6 @@ pyaudio
 pygetwindow
 pyautogui
 gtts
-re
 logging
 time
 subprocess
