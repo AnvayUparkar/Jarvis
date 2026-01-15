@@ -35,7 +35,7 @@ except ImportError:
 PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy\Jarvis\Hello-Mirage_en_windows_v4_0_0.ppn"
 
 # Configuration
-COOLDOWN_SECONDS = 2.0  # Cooldown after activation to prevent false retriggers
+COOLDOWN_SECONDS = 1.2  # Cooldown after activation to prevent false retriggers
 
 
 def hotword(command_queue):
@@ -71,7 +71,7 @@ def hotword(command_queue):
         porcupine = pvporcupine.create(
             access_key=PORCUPINE_ACCESS_KEY,
             keyword_paths=[PORCUPINE_MODEL_PATH],
-            sensitivities=[0.7]
+            sensitivities=[1.0]
         )
         
         print(f"[✅ HOTWORD] Porcupine initialized successfully")
