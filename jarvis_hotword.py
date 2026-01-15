@@ -4,59 +4,22 @@ import eel
 import speech_recognition as sr
 import time
 import pygame
-import pvporcupine
-import pyaudio
-import struct
-from main import listen, processCommand, speak, refresh_token
+from wake_word import WakeWordDetector
 
-# Initialize PyGame for optional sound playback
-pygame.mixer.init()
-
-# Initialize Eel with frontend
-eel.init("www")
-
-# Hotword detection loop
+# Initialize detector once to reuse resources effectively
+detector = WakeWordDetector()
 
 def hotword():
-    porcupine = None
-    paud = None
-    audio_stream = None
+    """
+    Listens for the wake word using the robust Auto-Fallback system.
+    Returns True when wake word is detected.
+    """
     try:
-        porcupine = pvporcupine.create(
-            access_key="cjFMSJ+voIyCw/yJdgE7XGglN7zHJSZqs8AnjYa0QJN+m7dkuXlAaQ==",
-            keyword_paths=[r"C:\Users\Anvay Uparkar\Python\JARVIS\Jarvis_en_windows_v3_0_0.ppn"]
-        )
-        paud = pyaudio.PyAudio()
-        audio_stream = paud.open(
-            rate=porcupine.sample_rate,
-            channels=1,
-            format=pyaudio.paInt16,
-            input=True,
-            frames_per_buffer=porcupine.frame_length
-        )
-
-        print("[Hotword] Listening for 'Jarvis'...")
-        while True:
-            keyword = audio_stream.read(porcupine.frame_length)
-            keyword = struct.unpack_from("h" * porcupine.frame_length, keyword)
-
-            keyword_index = porcupine.process(keyword)
-
-            if keyword_index >= 0:
-                print("[Hotword] Detected 'Jarvis'")
-                return True
-
+        # The listen() method handles Porcupine -> Fallback logic internally
+        return detector.listen()
     except Exception as e:
         print(f"[Hotword Error]: {e}")
         return False
-
-    finally:
-        if porcupine is not None:
-            porcupine.delete()
-        if audio_stream is not None:
-            audio_stream.close()
-        if paud is not None:
-            paud.terminate()
 
 
 @eel.expose
