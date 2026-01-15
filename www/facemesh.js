@@ -85,13 +85,13 @@ async function startFaceMesh() {
 // --- EMOTION TRANSMISSION VIA FLASK ---
 let lastSentEmotion = null;
 let lastSentTime = 0;
-const EMOTION_THROTTLE_MS = 1000; // Throttle to 1 second for HTTP
+const EMOTION_THROTTLE_MS = 200; // Throttle to 200ms for faster updates
 
 function sendEmotionToBackend(emotion) {
     const now = Date.now();
 
-    // Simple debounce + cooldown
-    if (emotion === lastSentEmotion && (now - lastSentTime < 2000)) return;
+    // Simple debounce for SAME emotion (prevent spam but allow fast repeats)
+    if (emotion === lastSentEmotion && (now - lastSentTime < 500)) return;
     if (now - lastSentTime < EMOTION_THROTTLE_MS) return;
 
     // Send via POST

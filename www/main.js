@@ -330,12 +330,20 @@ class AvatarController {
     startSpeaking() {
         console.log("[AVATAR] Speech Started 🔊");
         this.isSpeaking = true;
+        // If we are currently in SAD state, DO NOT switch to SPEAKING video.
+        // This allows 'SAD' video to play while audio speaks (Parallel mode).
+        if (this.currentState === "SAD") {
+            console.log("[AVATAR] Keeping SAD video during speech (Parallel Mode)");
+            return;
+        }
         this.play("SPEAKING");
     }
 
     stopSpeaking() {
         console.log("[AVATAR] Speech Ended 🔇");
         this.isSpeaking = false;
+        // If we were in SAD, we typically return to IDLE via main.py logic anyway.
+        // But for safety, we can switch to IDLE here too.
         this.play("IDLE");
     }
 }

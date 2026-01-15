@@ -51,94 +51,164 @@ from google_auth_oauthlib.flow import InstalledAppFlow # Will be used directly i
 from googleapiclient.discovery import build
 import socket
 # --- [Avatar Video Controller] ---
+# --- [Avatar Video Controller] ---
 class AvatarVideoController:
     """
-    Manages the avatar's video state and speech synchronization.
-    Enforces the IDLE -> EMOTION -> SPEAKING -> IDLE state machine.
+    Production-grade state machine for emotion-driven video and speech synchronization.
+    
+    Flow: IDLE → EMOTION_VIDEO → SPEAKING → IDLE
     """
+    
+    # Video durations (measured from actual files + buffer)
+    VIDEO_DURATIONS = {
+        "HAPPY": 4.0,   # Reduced to 4.0s for faster response (was 6.0s)
+        "SAD": 7.0,     # Sad.mp4 is 5.92s
+    }
+    
+    # Emotion-specific messages
+    EMOTION_MESSAGES = {
+        "happy": "You look happy. What's so special about today?",
+        "sad": "What happened? You look down today.",
+        "surprised": "Oh! You look surprised. What just happened?",
+    }
+    
     def __init__(self):
         self.current_state = "IDLE"
-        self._speech_lock = threading.Lock()
+        self._reaction_lock = threading.Lock()
         self.last_reaction_time = 0
-        self.reaction_cooldown = 15 # Seconds between emotion reactions
-        self.is_reacting = False # Flag to prevent state override during reaction
+        self.reaction_cooldown = 2   # Reduced to 2s as requested
+        self.is_reacting = False
+        self.last_emotion = None
+        self.happy_onset_time = None # Track start of happy emotion
 
     def play_video(self, state_name):
-        """Triggers a video change on the frontend via Eel."""
         try:
-            eel.js_play_avatar_video(state_name) 
+            eel.js_play_avatar_video(state_name)
             self.current_state = state_name
-            print(f"[AVATAR] State changed to: {state_name}")
+            print(f"[AVATAR] Video changed to: {state_name}")
         except Exception as e:
             print(f"[AVATAR] Error setting video state: {e}")
 
-    def trigger_reaction(self, emotion, lead_in_video, message):
-        """
-        Plays a lead-in video, waits, then speaks the message.
-        """
-        def _reaction_task():
-            with self._speech_lock: # Ensure only one reaction at a time
-                if self.is_reacting: return
-                self.is_reacting = True
-            
-            try:
-                print(f"[AVATAR] Triggering reaction for: {emotion}")
-                self.last_reaction_time = time.time()
-                
-                # 1. Play Lead-in Video (if applicable)
-                if lead_in_video and lead_in_video != "SPEAKING":
-                    self.play_video(lead_in_video)
-                    # Play lead-in for 3 seconds (as per user request "played and after that...")
-                    time.sleep(3.0)
-                
-                # 2. Speak (This triggers SPEAKING video via SpeechEngine hooks)
-                # Note: Surprised goes straight here if lead_in is None or SPEAKING
-                print(f"[AVATAR] Reacting with speech: {message}")
-                speak(message)
-                
-                # 3. Wait for speech to potentially finish or let hooks handle it.
-                # The 'speak' function blocks until TTS is queued/processed usually, 
-                # but actual playback might be async.
-                # However, the SpeechEngine hooks (signal_speech_end) will set us back to IDLE.
-                
-            except Exception as e:
-                print(f"[AVATAR] Reaction failed: {e}")
-            finally:
-                self.is_reacting = False
-                # Ensure we return to IDLE if not speaking (failsafe)
-                # But we let signal_speech_end handle it to be precise.
+    # ... [Existing _execute functions] ...
 
-        threading.Thread(target=_reaction_task, daemon=True).start()
+    # ... [Existing trigger_reaction function] ...
 
     def set_emotion(self, emotion):
-        """
-        Handles emotion updates from FaceMesh.
-        """
-        if self.is_reacting:
-            return # Don't interrupt a reaction
-            
-        if self.current_state == "SPEAKING":
-            return 
-            
-        current_time = time.time()
-        time_since_last_reaction = current_time - self.last_reaction_time
+        emotion = emotion.lower().strip()
+        
+        # Immediate reaction for all supported emotions
+        if emotion in ("happy", "sad", "surprised"):
+            self.trigger_reaction(emotion)
+        elif emotion == "neutral":
+            if not self.is_reacting and self.current_state != "IDLE":
+                self.play_video("IDLE")
+            self.last_emotion = "neutral"
 
-        # 2. Check for Emotion Reaction Triggers
-        if time_since_last_reaction > self.reaction_cooldown:
-            if emotion == "happy":
-                self.trigger_reaction("happy", "HAPPY", "You look happy! What's so special about today?")
-                return
-            elif emotion == "sad":
-                 self.trigger_reaction("sad", "SAD", "You seem a bit sad today. Has anything happened?")
-                 return
-            elif emotion == "surprised":
-                 # Surprised: Immediate speech, no distinct lead-in video requested that differs from Speaking
-                 self.trigger_reaction("surprised", None, "Oh! You look surprised. Didn't expect that, did you?")
-                 return
+    def _execute_happy_reaction(self, message, duration):
+        """Sequential: Happy Video -> Speaking Video + Audio -> Idle"""
+        try:
+            print(f"[AVATAR] Starting HAPPY reaction (Seq). Duration: {duration}s")
+            
+            # 1. Play Lead-in
+            self.play_video("HAPPY")
+            time.sleep(duration)
+            
+            # 2. Speaking Phase
+            self.play_video("SPEAKING")
+            print(f"[AVATAR] Speaking: '{message}'")
+            speak(message, block=True)
+            
+            # 3. Return to Idle
+            self.play_video("IDLE")
+            
+        except Exception as e:
+            print(f"[AVATAR] Happy reaction failed: {e}")
+            try: self.play_video("IDLE")
+            except: pass
+        finally:
+            self.is_reacting = False
+            self.last_reaction_time = time.time()
 
-        # 3. Handle Neutral -> Idle
-        if emotion == "neutral" and self.current_state != "IDLE":
-             self.play_video("IDLE")
+    def _execute_sad_reaction(self, message, duration):
+        """Parallel: Sad Video AND Speech start simultaneously. Wait for both."""
+        try:
+            print(f"[AVATAR] Starting SAD reaction (Parallel). Duration: {duration}s")
+            
+            # 1. Start Video
+            self.play_video("SAD")
+            
+            # 2. Start Speech immediately (Parallel)
+            # We use a separate thread for blocking speech so we can wait for video too
+            print(f"[AVATAR] Speaking (Parallel): '{message}'")
+            speech_thread = threading.Thread(target=speak, args=(message,), kwargs={'block':True})
+            speech_thread.start()
+            
+            # 3. Wait for Video Duration
+            time.sleep(duration)
+            
+            # 4. Wait for Speech to finish (if it's longer than video)
+            speech_thread.join()
+            
+            # 5. Return to Idle
+            self.play_video("IDLE")
+            
+        except Exception as e:
+            print(f"[AVATAR] Sad reaction failed: {e}")
+            try: self.play_video("IDLE")
+            except: pass
+        finally:
+            self.is_reacting = False
+            self.last_reaction_time = time.time()
+
+    def _execute_surprised_reaction(self, message):
+        """Immediate: Speaking Video + Audio -> Idle"""
+        try:
+            self.play_video("SPEAKING")
+            speak(message, block=True)
+            self.play_video("IDLE")
+        except Exception as e:
+            print(f"[AVATAR] Error: {e}")
+        finally:
+            self.is_reacting = False
+            self.last_reaction_time = time.time()
+
+    def trigger_reaction(self, emotion):
+        if self.is_reacting or self.current_state == "SPEAKING":
+            return False
+        
+        # Standard Cooldown Logic: Always wait 'reaction_cooldown' seconds after last reaction
+        time_since_last = time.time() - self.last_reaction_time
+        
+        if time_since_last < self.reaction_cooldown:
+            return False
+            
+        with self._reaction_lock:
+            if self.is_reacting: return False
+            self.is_reacting = True
+        
+        self.last_emotion = emotion
+        message = self.EMOTION_MESSAGES.get(emotion)
+        
+        # Route to specific handlers
+        if emotion == "happy":
+            threading.Thread(target=self._execute_happy_reaction, 
+                           args=(message, self.VIDEO_DURATIONS["HAPPY"]), 
+                           daemon=True).start()
+        elif emotion == "sad":
+            threading.Thread(target=self._execute_sad_reaction, 
+                           args=(message, self.VIDEO_DURATIONS["SAD"]), 
+                           daemon=True).start()
+        elif emotion == "surprised":
+            threading.Thread(target=self._execute_surprised_reaction, 
+                           args=(message,), 
+                           daemon=True).start()
+        else:
+            self.is_reacting = False
+            return False
+            
+        return True
+
+
 
 avatar_controller = AvatarVideoController()
 
@@ -148,12 +218,21 @@ import logging
 log = logging.getLogger('werkzeug')
 log.setLevel(logging.ERROR) # Silence Flask logs
 
+# Enable CORS manually to avoid dependency issues
+@emotion_flask_app.after_request
+def add_cors_headers(response):
+    response.headers.add('Access-Control-Allow-Origin', '*')
+    response.headers.add('Access-Control-Allow-Headers', 'Content-Type,Authorization')
+    response.headers.add('Access-Control-Allow-Methods', 'GET,PUT,POST,DELETE,OPTIONS')
+    return response
+
 @emotion_flask_app.route('/emotion', methods=['POST'])
 def receive_emotion():
     try:
         data = request.json
         emotion = data.get('emotion')
         if emotion:
+            print(f"[EMOTION] Received: {emotion}")
             # Update Avatar Controller
             avatar_controller.set_emotion(emotion)
         return jsonify({"status": "ok"})
@@ -943,9 +1022,18 @@ class SpeechEngine:
 speech_engine = SpeechEngine()
 
 @eel.expose
-def speak(text):
-    """Proxy function to maintain compatibility."""
-    speech_engine.speak(text, block=False)
+def speak(text, block=False):
+    """
+    Proxy function for speech synthesis.
+    
+    Args:
+        text: The text to speak
+        block: If True, waits for speech to complete before returning
+    """
+    if speech_engine:
+        speech_engine.speak(text, block=block)
+    else:
+        print(f"[SPEECH] Engine not initialized. Text: {text}")
 
 
 # --- [Fine-Tuned listen()] ---
