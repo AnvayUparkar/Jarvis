@@ -82,6 +82,38 @@ async function startFaceMesh() {
 /**
  * Stops the FaceMesh system.
  */
+// --- EMOTION TRANSMISSION VIA FLASK ---
+let lastSentEmotion = null;
+let lastSentTime = 0;
+const EMOTION_THROTTLE_MS = 1000; // Throttle to 1 second for HTTP
+
+function sendEmotionToBackend(emotion) {
+    const now = Date.now();
+
+    // Simple debounce + cooldown
+    if (emotion === lastSentEmotion && (now - lastSentTime < 2000)) return;
+    if (now - lastSentTime < EMOTION_THROTTLE_MS) return;
+
+    // Send via POST
+    fetch("http://localhost:5013/emotion", {
+        method: "POST",
+        headers: {
+            "Content-Type": "application/json"
+        },
+        body: JSON.stringify({
+            emotion: emotion,
+            timestamp: now
+        })
+    }).catch(err => {
+        // Silently fail or log sparingly to avoid console spam if server is down
+        // console.warn("Emotion send failed:", err);
+    });
+
+    lastSentEmotion = emotion;
+    lastSentTime = now;
+}
+
+// Ensure stop logic is clean
 function stopFaceMesh() {
     isRunning = false;
     if (rafID) {
@@ -178,6 +210,7 @@ async function renderPrediction() {
             if (emotion !== currentEmotion) {
                 currentEmotion = emotion;
                 updateEmotionDisplay(emotion);
+                sendEmotionToBackend(emotion); // Notify Python backend
             }
         });
     } else {
@@ -328,6 +361,18 @@ function updateEmotionDisplay(emotion) {
         labelEl.textContent = emotion.charAt(0).toUpperCase() + emotion.slice(1);
     }
 
+    // Update Floating Cursor Prompt with Emotion
+    const cursorPrompt = document.getElementById('cursorPrompt');
+    if (cursorPrompt) {
+        if (emotion === "neutral") {
+            cursorPrompt.textContent = "Jarvis: Ready";
+        } else {
+            cursorPrompt.textContent = `Jarvis: User is ${emotion}`;
+            cursorPrompt.classList.add('visible');
+            setTimeout(() => cursorPrompt.classList.remove('visible'), 2000); // Hide after 2s
+        }
+    }
+
     console.log(`Emotion: ${emotion}`);
 }
 
@@ -354,7 +399,6 @@ function drawKeypoints(keypoints, ctx) {
         ctx.fill();
     });
 
-    ctx.fillStyle = '#4ECDC4'; // Teal for eyebrows
     [LANDMARK_INDICES.LEFT_EYEBROW_INNER, LANDMARK_INDICES.RIGHT_EYEBROW_INNER].forEach(idx => {
         const [x, y] = keypoints[idx];
         ctx.beginPath();
@@ -362,3 +406,40 @@ function drawKeypoints(keypoints, ctx) {
         ctx.fill();
     });
 }
+
+// --- Main Initialization ---
+async function main() {
+    // 1. Setup Camera
+    try {
+        await setupCamera();
+        video.play();
+        console.log("Camera setup success.");
+    } catch (err) {
+        console.error("Camera Error:", err);
+        alert("Camera Info: " + err.name + " - " + err.message);
+        return;
+    }
+
+    // 2. Load Model
+    try {
+        await loadFaceMeshModel();
+        console.log("Model loaded success.");
+    } catch (err) {
+        console.error("Model Error:", err);
+        alert("Model Load Error: " + err.message);
+        return;
+    }
+
+    // 3. Start Loop
+    try {
+        isRunning = true;
+        renderPrediction();
+        console.log("FaceMesh System Started!");
+    } catch (err) {
+        console.error("Render Error:", err);
+        alert("Render Error: " + err.message);
+    }
+}
+
+// Start when DOM is ready
+document.addEventListener("DOMContentLoaded", main);

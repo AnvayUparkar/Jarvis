@@ -5,6 +5,10 @@ import pyttsx3
 import requests
 import pygame
 import os
+import socket
+from flask import Flask, request, jsonify # Moved/Added import to top for global availability
+import asyncio
+import websockets
 import base64 # Added import for base64 decoding
 import threading
 import queue
@@ -46,8 +50,127 @@ from google.oauth2.credentials import Credentials # Already imported at top
 from google_auth_oauthlib.flow import InstalledAppFlow # Will be used directly in auth functions
 from googleapiclient.discovery import build
 import socket
+# --- [Avatar Video Controller] ---
+class AvatarVideoController:
+    """
+    Manages the avatar's video state and speech synchronization.
+    Enforces the IDLE -> EMOTION -> SPEAKING -> IDLE state machine.
+    """
+    def __init__(self):
+        self.current_state = "IDLE"
+        self._speech_lock = threading.Lock()
+        self.last_reaction_time = 0
+        self.reaction_cooldown = 15 # Seconds between emotion reactions
+        self.is_reacting = False # Flag to prevent state override during reaction
 
-# --- [Network Safety] ---
+    def play_video(self, state_name):
+        """Triggers a video change on the frontend via Eel."""
+        try:
+            eel.js_play_avatar_video(state_name) 
+            self.current_state = state_name
+            print(f"[AVATAR] State changed to: {state_name}")
+        except Exception as e:
+            print(f"[AVATAR] Error setting video state: {e}")
+
+    def trigger_reaction(self, emotion, lead_in_video, message):
+        """
+        Plays a lead-in video, waits, then speaks the message.
+        """
+        def _reaction_task():
+            with self._speech_lock: # Ensure only one reaction at a time
+                if self.is_reacting: return
+                self.is_reacting = True
+            
+            try:
+                print(f"[AVATAR] Triggering reaction for: {emotion}")
+                self.last_reaction_time = time.time()
+                
+                # 1. Play Lead-in Video (if applicable)
+                if lead_in_video and lead_in_video != "SPEAKING":
+                    self.play_video(lead_in_video)
+                    # Play lead-in for 3 seconds (as per user request "played and after that...")
+                    time.sleep(3.0)
+                
+                # 2. Speak (This triggers SPEAKING video via SpeechEngine hooks)
+                # Note: Surprised goes straight here if lead_in is None or SPEAKING
+                print(f"[AVATAR] Reacting with speech: {message}")
+                speak(message)
+                
+                # 3. Wait for speech to potentially finish or let hooks handle it.
+                # The 'speak' function blocks until TTS is queued/processed usually, 
+                # but actual playback might be async.
+                # However, the SpeechEngine hooks (signal_speech_end) will set us back to IDLE.
+                
+            except Exception as e:
+                print(f"[AVATAR] Reaction failed: {e}")
+            finally:
+                self.is_reacting = False
+                # Ensure we return to IDLE if not speaking (failsafe)
+                # But we let signal_speech_end handle it to be precise.
+
+        threading.Thread(target=_reaction_task, daemon=True).start()
+
+    def set_emotion(self, emotion):
+        """
+        Handles emotion updates from FaceMesh.
+        """
+        if self.is_reacting:
+            return # Don't interrupt a reaction
+            
+        if self.current_state == "SPEAKING":
+            return 
+            
+        current_time = time.time()
+        time_since_last_reaction = current_time - self.last_reaction_time
+
+        # 2. Check for Emotion Reaction Triggers
+        if time_since_last_reaction > self.reaction_cooldown:
+            if emotion == "happy":
+                self.trigger_reaction("happy", "HAPPY", "You look happy! What's so special about today?")
+                return
+            elif emotion == "sad":
+                 self.trigger_reaction("sad", "SAD", "You seem a bit sad today. Has anything happened?")
+                 return
+            elif emotion == "surprised":
+                 # Surprised: Immediate speech, no distinct lead-in video requested that differs from Speaking
+                 self.trigger_reaction("surprised", None, "Oh! You look surprised. Didn't expect that, did you?")
+                 return
+
+        # 3. Handle Neutral -> Idle
+        if emotion == "neutral" and self.current_state != "IDLE":
+             self.play_video("IDLE")
+
+avatar_controller = AvatarVideoController()
+
+# --- [Flask Emotion Service] ---
+emotion_flask_app = Flask("emotion_service")
+import logging
+log = logging.getLogger('werkzeug')
+log.setLevel(logging.ERROR) # Silence Flask logs
+
+@emotion_flask_app.route('/emotion', methods=['POST'])
+def receive_emotion():
+    try:
+        data = request.json
+        emotion = data.get('emotion')
+        if emotion:
+            # Update Avatar Controller
+            avatar_controller.set_emotion(emotion)
+        return jsonify({"status": "ok"})
+    except Exception as e:
+        print(f"[EMOTION] Error processing emotion: {e}")
+        return jsonify({"status": "error", "error": str(e)}), 500
+
+def run_emotion_flask():
+    print("[EMOTION] Starting Flask Service on port 5013...")
+    try:
+        emotion_flask_app.run(port=5013, debug=False, use_reloader=False)
+    except Exception as e:
+        print(f"[EMOTION] Failed to start Flask Service: {e}")
+
+# IMPORTANT: Do NOT start the thread here globally.
+# It is started inside the start() function to ensure single instance.
+
 def safe_request(method, url, **kwargs):
     """
     Wrapper for requests with mandatory timeout and error handling.
@@ -66,8 +189,12 @@ from google_forms_integration import create_google_form
 import gmail
 from gmail import generate_email_body_with_gemini
 from email.mime.text import MIMEText # NEW: Import for creating email messages
+
 # NEW: Import activation beep for hotword detection feedback
 from activation_beep import play_activation_beep
+
+
+
 
 
 # Assuming 'speak' function and 'api_data' (for GEN_AI_API_KEY) are accessible
@@ -3918,6 +4045,9 @@ def start(command_queue):
     # speak("Initializing Jarvis...")
 
     eel.init("www")
+
+    # Start the Emotion Flask Service
+    threading.Thread(target=run_emotion_flask, daemon=True).start()
 
     threading.Thread(target=hotword_listener_thread, args=(hotword_queue,), daemon=True).start()
 

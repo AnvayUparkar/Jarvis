@@ -343,6 +343,14 @@ class AvatarController {
 // Global Instance
 const avatar = new AvatarController();
 
+// Exposed function for Python to control Avatar
+eel.expose(js_play_avatar_video);
+function js_play_avatar_video(stateName) {
+    if (avatar) {
+        avatar.play(stateName);
+    }
+}
+
 // ----------------------------------------------------
 // 🧠 SENTIMENT ANALYSIS INTEGRATION
 // ----------------------------------------------------
