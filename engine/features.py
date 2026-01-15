@@ -30,7 +30,9 @@ except ImportError:
 
 # Path to Porcupine model file (.ppn)
 # Using the full path to the Jarvis model included in the repository
-PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy\Jarvis\Jarvis_en_windows_v3_0_0.ppn"
+# Path to Porcupine model file (.ppn)
+# Using the full path to the "Hello Mirage" model included in the repository
+PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy\Jarvis\Hello-Mirage_en_windows_v4_0_0.ppn"
 
 # Configuration
 COOLDOWN_SECONDS = 2.0  # Cooldown after activation to prevent false retriggers
@@ -38,16 +40,16 @@ COOLDOWN_SECONDS = 2.0  # Cooldown after activation to prevent false retriggers
 
 def hotword(command_queue):
     """
-    Continuous hotword detection listener for Jarvis wake word.
+    Continuous hotword detection listener for "Hello Mirage" wake word.
     
     Args:
         command_queue: multiprocessing.Queue for sending activation signals to main process
         
     This function:
-    - Initializes Porcupine with the Jarvis model
+    - Initializes Porcupine with the Hello Mirage model
     - Opens a continuous audio stream
     - Processes audio frames for hotword detection
-    - Sends "activate_jarvis" signal when wake word is detected
+    - Sends "activate_mirage" signal when wake word is detected
     - Includes cooldown to prevent rapid re-triggering
     - Handles cleanup on exit
     """
@@ -65,10 +67,11 @@ def hotword(command_queue):
     try:
         print("[🎙️ HOTWORD] Initializing Porcupine hotword detector...")
         
-        # Initialize Porcupine with the Jarvis wake word model
+        # Initialize Porcupine with the Hello Mirage wake word model
         porcupine = pvporcupine.create(
             access_key=PORCUPINE_ACCESS_KEY,
-            keyword_paths=[PORCUPINE_MODEL_PATH]
+            keyword_paths=[PORCUPINE_MODEL_PATH],
+            sensitivities=[0.7]
         )
         
         print(f"[✅ HOTWORD] Porcupine initialized successfully")
@@ -86,7 +89,7 @@ def hotword(command_queue):
             input_device_index=None  # Use default input device
         )
         
-        print(f"[🎙️ HOTWORD] Audio stream opened, beginning continuous listening for wake word 'Jarvis'...")
+        print(f"[🎙️ HOTWORD] Audio stream opened, beginning continuous listening for wake word 'Hello Mirage'...")
         print(f"[⏱️ HOTWORD] Cooldown period: {COOLDOWN_SECONDS} seconds after detection")
         
         # Main listening loop
@@ -107,11 +110,11 @@ def hotword(command_queue):
                     
                     # Apply cooldown to prevent false retriggers
                     if current_time - last_activation_time >= COOLDOWN_SECONDS:
-                        print(f"\n[🔊 HOTWORD] ✨ Wake word 'Jarvis' DETECTED! Activating...")
+                        print(f"\n[🔊 HOTWORD] ✨ Wake word 'Hello Mirage' DETECTED! Activating...")
                         
                         # Send activation signal to main process via queue
                         try:
-                            command_queue.put("activate_jarvis", timeout=1)
+                            command_queue.put("activate_mirage", timeout=1)
                             print(f"[📤 HOTWORD] Activation signal sent to main process")
                         except queue.Full:
                             print(f"[⚠️ HOTWORD] Queue is full, activation signal not sent")

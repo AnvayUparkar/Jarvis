@@ -3861,13 +3861,13 @@ def hotword_listener_thread(q):
         try:
             # Wait for activation signal from hotword detection process
             message = q.get(timeout=1)
-            if message == "activate_jarvis":
+            if message == "activate_mirage":
                 # WAKE UP FROM SLEEP if needed
                 if SLEEP_MODE:
                     SLEEP_MODE = False
                     print("[😴 → 🎙️] Jarvis waking up from sleep mode!")
                 
-                print("[✨] Jarvis activated by hotword detection!")
+                print("[✨] Hello Mirage wake word detected!")
                 
                 # Play activation beep to confirm detection
                 try:
