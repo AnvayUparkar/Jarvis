@@ -1,17 +1,17 @@
-
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JARVIS - Home</title>
 
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  
+
   <style>
     * {
       margin: 0;
@@ -19,7 +19,8 @@
       box-sizing: border-box;
     }
 
-    html, body {
+    html,
+    body {
       height: 100%;
       font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
       background: linear-gradient(135deg, #0f0c29 0%, #302b63 50%, #24243e 100%);
@@ -76,15 +77,20 @@
     }
 
     @keyframes float {
-      0%, 100% {
+
+      0%,
+      100% {
         transform: translate(0px, 0px);
       }
+
       25% {
         transform: translate(30px, -30px);
       }
+
       50% {
         transform: translate(0px, 40px);
       }
+
       75% {
         transform: translate(-30px, -20px);
       }
@@ -104,7 +110,7 @@
       justify-content: center;
       text-align: center;
       padding: 60px 20px;
-      background: linear-gradient(180deg, rgba(15,12,41,0.8) 0%, rgba(48,43,99,0.6) 100%);
+      background: linear-gradient(180deg, rgba(15, 12, 41, 0.8) 0%, rgba(48, 43, 99, 0.6) 100%);
       position: relative;
       overflow: hidden;
     }
@@ -145,7 +151,7 @@
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 
+      box-shadow:
         0 0 20px rgba(0, 255, 255, 0.8),
         0 0 40px rgba(0, 255, 255, 0.5),
         inset 0 0 40px rgba(0, 255, 255, 0.2);
@@ -162,15 +168,18 @@
     }
 
     @keyframes glowPulse {
-      0%, 100% {
-        box-shadow: 
+
+      0%,
+      100% {
+        box-shadow:
           0 0 20px rgba(0, 255, 255, 0.8),
           0 0 40px rgba(0, 255, 255, 0.5),
           inset 0 0 40px rgba(0, 255, 255, 0.2);
         transform: scale(1);
       }
+
       50% {
-        box-shadow: 
+        box-shadow:
           0 0 40px rgba(0, 255, 255, 1),
           0 0 80px rgba(0, 255, 255, 0.6),
           inset 0 0 60px rgba(0, 255, 255, 0.3);
@@ -183,6 +192,7 @@
         opacity: 0;
         transform: translateY(30px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -241,6 +251,7 @@
         opacity: 0;
         transform: translateY(40px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -287,16 +298,28 @@
       opacity: 0;
     }
 
-    .card:nth-child(1) { animation-delay: 0.1s; }
-    .card:nth-child(2) { animation-delay: 0.2s; }
-    .card:nth-child(3) { animation-delay: 0.3s; }
-    .card:nth-child(4) { animation-delay: 0.4s; }
+    .card:nth-child(1) {
+      animation-delay: 0.1s;
+    }
+
+    .card:nth-child(2) {
+      animation-delay: 0.2s;
+    }
+
+    .card:nth-child(3) {
+      animation-delay: 0.3s;
+    }
+
+    .card:nth-child(4) {
+      animation-delay: 0.4s;
+    }
 
     @keyframes fadeIn {
       from {
         opacity: 0;
         transform: translateY(20px);
       }
+
       to {
         opacity: 1;
         transform: translateY(0);
@@ -316,8 +339,13 @@
     }
 
     @keyframes shimmer {
-      0% { transform: translateX(-100%) translateY(-100%) rotate(45deg); }
-      100% { transform: translateX(100%) translateY(100%) rotate(45deg); }
+      0% {
+        transform: translateX(-100%) translateY(-100%) rotate(45deg);
+      }
+
+      100% {
+        transform: translateX(100%) translateY(100%) rotate(45deg);
+      }
     }
 
     .card:hover {
@@ -393,8 +421,15 @@
     }
 
     @keyframes pulse {
-      0%, 100% { opacity: 0.6; }
-      50% { opacity: 0.8; }
+
+      0%,
+      100% {
+        opacity: 0.6;
+      }
+
+      50% {
+        opacity: 0.8;
+      }
     }
 
     .skeleton-line {
@@ -511,6 +546,7 @@
         opacity: 0;
         transform: translateX(20px);
       }
+
       to {
         opacity: 1;
         transform: translateX(0);
@@ -930,6 +966,7 @@
     }
 
     @media (max-width: 480px) {
+
       .login-modal .credentials-panel.signin,
       .login-modal .credentials-panel.signup {
         padding: 30px 20px;
@@ -1025,7 +1062,13 @@
         </p>
         <div class="hero-image">
           <div class="floating-circle">
-            <img src="https://raw.githubusercontent.com/Arun020/Jarvis-AI/main/giphy.gif" alt="Jarvis" />
+            <!-- Replaced Iron Man HUD with Idle.mp4 Loop (Listening.mp4 commented out per request) -->
+            <video id="heroVideo" autoplay loop muted playsinline
+              style="width: 100%; height: 100%; border-radius: 50%; object-fit: cover;">
+              <!-- <source src="assets/img/Listening.mp4" type="video/mp4"> -->
+              <source src="assets/img/Idle.mp4" type="video/mp4">
+              Your browser does not support the video tag.
+            </video>
           </div>
         </div>
         <div style="display: flex; gap: 20px; justify-content: center; flex-wrap: wrap;">
@@ -1101,7 +1144,7 @@
       <div class="auth-wrapper">
         <div class="background-shape"></div>
         <div class="secondary-shape"></div>
-        
+
         <!-- Login Panel -->
         <div class="credentials-panel signin">
           <h2 class="slide-element">Login</h2>
@@ -1177,7 +1220,7 @@
   <script type="text/javascript" src="/eel.js"></script>
   <script>
     // Check for eel availability when the page is served from the Eel server.
-    (function() {
+    (function () {
       if (typeof eel !== 'undefined') {
         try {
           console.log('Γ£à eel.js loaded');
@@ -1193,18 +1236,18 @@
 
   <script>
     // ===== FIXED NAVIGATION FUNCTIONALITY =====
-    
+
     function navigateToPage(pageName) {
       console.log(`Navigating to ${pageName}...`);
       // Simply change the window location to navigate within the same tab
       window.location.href = pageName;
     }
-    
+
     function navigateToAssistant() {
       // Check if user is authenticated first
       if (typeof eel !== 'undefined') {
         try {
-          eel.get_authenticated_user_info()(function(result) {
+          eel.get_authenticated_user_info()(function (result) {
             try {
               if (!result || !result.authenticated || !result.name) {
                 console.log('User not authenticated. Showing login modal.');
@@ -1212,7 +1255,7 @@
                 document.getElementById('loginModal').classList.add('show');
                 return;
               }
-              
+
               // User is authenticated - proceed to assistant
               console.log('User authenticated. Opening assistant...');
               navigateToPage('index.html');
@@ -1233,11 +1276,11 @@
     }
 
     // Set up navigation event listeners
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       // Primary CTA button
       const goToAssistantBtn = document.getElementById('goToAssistant');
       if (goToAssistantBtn) {
-        goToAssistantBtn.addEventListener('click', function(e) {
+        goToAssistantBtn.addEventListener('click', function (e) {
           e.preventDefault();
           navigateToAssistant();
         });
@@ -1246,7 +1289,7 @@
       // Navbar link
       const navAssistLink = document.getElementById('goAssistantLink');
       if (navAssistLink) {
-        navAssistLink.addEventListener('click', function(e) {
+        navAssistLink.addEventListener('click', function (e) {
           e.preventDefault();
           navigateToAssistant();
         });
@@ -1255,7 +1298,7 @@
       // Learn More button
       const learnMoreBtn = document.getElementById('learnMore');
       if (learnMoreBtn) {
-        learnMoreBtn.addEventListener('click', function() {
+        learnMoreBtn.addEventListener('click', function () {
           const cardsSection = document.querySelector('.cards-section');
           if (cardsSection) {
             cardsSection.scrollIntoView({ behavior: 'smooth' });
@@ -1266,20 +1309,35 @@
       // Card explore links
       const cardLinks = document.querySelectorAll('.card-cta');
       cardLinks.forEach(link => {
-        link.addEventListener('click', function(e) {
+        link.addEventListener('click', function (e) {
           e.preventDefault();
           navigateToAssistant();
         });
       });
+
+      // Hero Video Sequence: Listening -> Idle (Loop)
+
+      // COMMENTED OUT: User requested only Idle.mp4 loop
+      /*
+      const heroVideo = document.getElementById('heroVideo');
+      if (heroVideo) {
+        heroVideo.addEventListener('ended', function() {
+            console.log('Listening intro ended, switching to Idle loop.');
+            this.src = 'assets/img/Idle.mp4';
+            this.loop = true;
+            this.play();
+        });
+      }
+      */
     });
 
     // Parallax effect with mouse
     const floatingCircleEl = document.querySelector('.floating-circle');
-    
+
     document.addEventListener('mousemove', (e) => {
       const x = (e.clientX / window.innerWidth - 0.5) * 20;
       const y = (e.clientY / window.innerHeight - 0.5) * 20;
-      
+
       if (floatingCircleEl) {
         floatingCircleEl.style.transform = `translate(${x}px, ${y}px) scale(1)`;
       }
@@ -1375,10 +1433,10 @@
     // ===== GOOGLE AUTHENTICATION WITH EMAIL VERIFICATION =====
     loginForm.addEventListener('submit', async (e) => {
       e.preventDefault();
-      
+
       const email = document.getElementById('loginUsername').value.trim();
       const password = document.getElementById('loginPassword').value;
-      
+
       if (!email || !password) {
         showLoginMessage('Please enter both email and password', 'error');
         return;
@@ -1390,7 +1448,7 @@
         // Check if Eel is available
         if (typeof eel !== 'undefined') {
           // Call the Python backend to verify and authenticate Google
-          eel.verify_and_authenticate_google(email)(async function(result) {
+          eel.verify_and_authenticate_google(email)(async function (result) {
             if (result.success) {
               await eel.set_authenticated_user(result.user_name, result.user_email)();
               showLoginMessage(
@@ -1398,11 +1456,11 @@
                 'success'
               );
               console.log('≡ƒÄë User authenticated:', result.user_name, result.user_email);
-              
+
               // Clear form
               document.getElementById('loginUsername').value = '';
               document.getElementById('loginPassword').value = '';
-              
+
               // Close modal after 2 seconds
               setTimeout(() => {
                 loginModal.classList.remove('show');
@@ -1451,11 +1509,11 @@
     // Logout functionality
     logoutBtn.addEventListener('click', (e) => {
       e.preventDefault();
-      
+
       // Call backend logout function
       if (typeof eel !== 'undefined') {
         try {
-          eel.logout_user()(function(result) {
+          eel.logout_user()(function (result) {
             try {
               if (result.success) {
                 console.log('User logged out successfully');
@@ -1495,7 +1553,7 @@
     window.addEventListener('load', () => {
       if (typeof eel !== 'undefined') {
         try {
-          eel.get_authenticated_user_info()(function(result) {
+          eel.get_authenticated_user_info()(function (result) {
             try {
               if (result && result.authenticated && result.name) {
                 displayUserInfo(result.name);
@@ -1520,4 +1578,5 @@
     });
   </script>
 </body>
+
 </html>
