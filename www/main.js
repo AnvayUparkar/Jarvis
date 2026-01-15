@@ -81,7 +81,7 @@ function receiverText(responseText) {
     botBubble.innerHTML = `<div class='chat-message jarvis-message'><b>Jarvis:</b><br>${responseText}</div>`;
     area.appendChild(botBubble);
     area.scrollTop = area.scrollHeight;
-    
+
     // Re-render MathJax if available (for LaTeX math rendering)
     if (window.MathJax && window.MathJax.typesetPromise) {
         MathJax.typesetPromise([botBubble]).catch(err => console.log('MathJax rendering error:', err));
@@ -245,4 +245,169 @@ function submitTextInput() {
 eel.expose(displayPrompt);
 function displayPrompt(text) {
     alert(text);
+}
+
+// ----------------------------------------------------
+// 🧠 AVATAR VIDEO CONTROLLER (STATE MACHINE)
+// ----------------------------------------------------
+class AvatarController {
+    constructor() {
+        this.video = document.getElementById("avatar-video");
+        this.basePath = "assets/img/";
+        this.currentState = "IDLE";
+        this.isSpeaking = false;
+
+        // Preload videos to avoid buffering delays
+        this.assets = {
+            IDLE: "Idle.mp4",
+            HAPPY: "Happy.mp4",
+            SAD: "Sad.mp4",
+            SPEAKING: "Speaking.mp4",
+            THINKING: "Thinking.mp4"
+        };
+
+        console.log("[AVATAR] Initialized. State: IDLE");
+    }
+
+    play(stateName) {
+        if (!this.video) {
+            this.video = document.getElementById("avatar-video");
+            if (!this.video) return;
+        }
+
+        const filename = this.assets[stateName];
+        if (!filename) return;
+
+        const newSrc = this.basePath + filename;
+
+        // Prevent reloading if already playing the same file
+        // BUT: if we are restarting a loop or transitioning, we might need to force it.
+        // For simple state changes:
+        if (this.video.getAttribute("src") === newSrc && !this.video.paused) {
+            return;
+        }
+
+        console.log(`[AVATAR] Playing ${filename} (${stateName})`);
+
+        // Stop current
+        this.video.pause();
+
+        // Switch
+        this.video.src = newSrc;
+        this.video.load(); // Important for smooth switch
+
+        const playPromise = this.video.play();
+        if (playPromise !== undefined) {
+            playPromise.catch(error => {
+                console.warn("[AVATAR] Play prevented:", error);
+            });
+        }
+
+        this.currentState = stateName;
+    }
+
+    // Triggered by Sentiment Analysis Result
+    setEmotion(sentiment) {
+        console.log(`[AVATAR] Setting emotion for: ${sentiment}`);
+
+        // USER REQUEST UPDATE: 
+        // "Till I don't wake up Jarvis... idle state... when it start speaking... then only speaking animation"
+        // This implies we skip the "Happy/Sad" lead-in videos to maintain strict Idle state until speech.
+
+        if (sentiment === "POSITIVE") {
+            this.play("HAPPY");
+            console.log("[AVATAR] Emotion POSITIVE (Playing Happy lead-in)");
+        } else if (sentiment === "NEGATIVE") {
+            this.play("SAD");
+            console.log("[AVATAR] Emotion NEGATIVE (Playing Sad lead-in)");
+        } else {
+            if (this.currentState !== "IDLE" && this.currentState !== "SPEAKING") {
+                this.play("IDLE");
+            }
+        }
+    }
+
+    startSpeaking() {
+        console.log("[AVATAR] Speech Started 🔊");
+        this.isSpeaking = true;
+        this.play("SPEAKING");
+    }
+
+    stopSpeaking() {
+        console.log("[AVATAR] Speech Ended 🔇");
+        this.isSpeaking = false;
+        this.play("IDLE");
+    }
+}
+
+// Global Instance
+const avatar = new AvatarController();
+
+// ----------------------------------------------------
+// 🧠 SENTIMENT ANALYSIS INTEGRATION
+// ----------------------------------------------------
+
+async function analyzeSentiment(text) {
+    if (!text || text.trim() === "") return;
+
+    console.log(`[SENTIMENT] Analyzing: "${text}"`);
+
+    try {
+        const response = await fetch("http://localhost:5001/sentiment", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ text: text })
+        });
+
+        if (!response.ok) {
+            throw new Error(`API Error: ${response.status}`);
+        }
+
+        const data = await response.json();
+        console.log(`[SENTIMENT] Result: ${data.sentiment} (Conf: ${data.confidence})`);
+
+        // Update Avatar
+        avatar.setEmotion(data.sentiment);
+
+    } catch (error) {
+        console.error("[SENTIMENT] Failed:", error);
+        // Fallback to Neutral/Idle
+    }
+}
+
+// ----------------------------------------------------
+// 🔌 EEL EXPOSURES FOR BACKEND SYNCHRONIZATION
+// ----------------------------------------------------
+
+eel.expose(signal_speech_start);
+function signal_speech_start() {
+    avatar.startSpeaking();
+}
+
+eel.expose(signal_speech_end);
+function signal_speech_end() {
+    avatar.stopSpeaking();
+}
+
+// Override the existing appendUserMessage to inject sentiment analysis
+// The original was defined earlier or in other files, but we can overwrite/extend behavior here
+// We need to keep the UI update and ADD the analysis.
+const originalAppendUserMessage = window.appendUserMessage || (() => { });
+
+// Re-expose/Refine appendUserMessage
+eel.expose(appendUserMessage);
+function appendUserMessage(message) {
+    const chatArea = document.getElementById("receiverTextArea");
+    if (!chatArea) return;
+
+    // UI Update (Replicating original logic to ensure it works even if we overwrite)
+    const userBubble = document.createElement("div");
+    userBubble.className = "chat-bubble sender";
+    userBubble.innerHTML = `<div class='chat-message user-message'><b>You:</b><br>${message}</div>`;
+    chatArea.appendChild(userBubble);
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    // NEW: Trigger Sentiment Analysis
+    // "The EXACT SAME TEXT... must be passed into sentiment.js"
+    analyzeSentiment(message);
 }

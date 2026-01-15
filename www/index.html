@@ -1,14 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>JARVIS - Virtual Assistant</title>
 
   <!-- Styles -->
-   <!-- Styles -->
+  <!-- Styles -->
   <style>
-    html, body {
+    html,
+    body {
       margin: 0;
       padding: 0;
       height: 100%;
@@ -109,12 +111,15 @@
     }
 
     @keyframes glowPulse {
-      0%, 100% {
+
+      0%,
+      100% {
         box-shadow:
           0 0 15px rgba(0, 255, 255, 0.8),
           0 0 30px rgba(0, 255, 255, 0.5),
           0 0 60px rgba(0, 255, 255, 0.3);
       }
+
       50% {
         box-shadow:
           0 0 25px rgba(0, 255, 255, 1),
@@ -158,30 +163,38 @@
     }
 
     #receiverTextArea {
-      padding-bottom: 320px; /* accommodates SiriWave */
+      padding-bottom: 320px;
+      /* accommodates SiriWave */
       width: 100%;
       max-width: 600px;
-      height: 300px; /* Fixed height for the chat area */
+      height: 300px;
+      /* Fixed height for the chat area */
       padding: 15px;
-      overflow-y: auto; /* Enable scrolling */
+      overflow-y: auto;
+      /* Enable scrolling */
       scroll-behavior: smooth;
       border-radius: 10px;
-      background-color: rgba(255,255,255,0.05);
-      margin-top: 5px; /* Space between main content and chat */
+      background-color: rgba(255, 255, 255, 0.05);
+      margin-top: 5px;
+      /* Space between main content and chat */
     }
 
     #TextInput {
-      position: fixed; /* Fix the input bar at the bottom */
+      position: fixed;
+      /* Fix the input bar at the bottom */
       bottom: 0;
       left: 0;
       width: 100%;
-      background-color: #000; /* Dark background for the input bar */
+      background-color: #000;
+      /* Dark background for the input bar */
       padding: 10px 20px;
       display: flex;
       align-items: center;
       justify-content: center;
-      box-shadow: 0 -2px 10px rgba(0,0,0,0.5); /* Optional shadow */
-      z-index: 1000; /* Ensure it's on top */
+      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
+      /* Optional shadow */
+      z-index: 1000;
+      /* Ensure it's on top */
     }
 
     .feedback-widget {
@@ -206,126 +219,138 @@
 
     /* Style for chat bubbles */
     .chat-bubble {
-        display: flex;
-        margin-bottom: 10px;
+      display: flex;
+      margin-bottom: 10px;
     }
 
     .chat-bubble.sender {
-        justify-content: flex-end;
+      justify-content: flex-end;
     }
 
     .chat-bubble.receiver {
-        justify-content: flex-start;
+      justify-content: flex-start;
     }
 
     .chat-message {
-        padding: 10px 15px;
-        border-radius: 15px;
-        max-width: 70%; /* Limit bubble width */
-        word-wrap: break-word;
+      padding: 10px 15px;
+      border-radius: 15px;
+      max-width: 70%;
+      /* Limit bubble width */
+      word-wrap: break-word;
     }
 
     .chat-bubble.sender .chat-message {
-        background-color: #0d6efd; /* Bootstrap primary blue */
-        color: white;
+      background-color: #0d6efd;
+      /* Bootstrap primary blue */
+      color: white;
     }
 
     .chat-bubble.receiver .chat-message {
-        background-color: #6c757d; /* Bootstrap secondary gray */
-        color: white;
+      background-color: #6c757d;
+      /* Bootstrap secondary gray */
+      color: white;
     }
 
     /* Glow on hover for buttons */
     .glow-on-hover {
-        width: 50px;
-        height: 50px;
-        border: none;
-        outline: none;
-        color: #fff;
-        background: #111;
-        cursor: pointer;
-        position: relative;
-        z-index: 0;
-        border-radius: 10px;
-        margin-left: 5px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.2rem;
-        overflow: hidden; /* Hide pseudo-element overflow */
+      width: 50px;
+      height: 50px;
+      border: none;
+      outline: none;
+      color: #fff;
+      background: #111;
+      cursor: pointer;
+      position: relative;
+      z-index: 0;
+      border-radius: 10px;
+      margin-left: 5px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      overflow: hidden;
+      /* Hide pseudo-element overflow */
     }
 
     .glow-on-hover:before {
-        content: '';
-        background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
-        position: absolute;
-        top: -200%;
-        left: -200%;
-        background-size: 400%;
-        z-index: -1;
-        filter: blur(5px);
-        width: 200%;
-        height: 200%;
-        animation: glowing 8s linear infinite;
-        opacity: 0;
-        transition: opacity .3s ease-in-out;
-        border-radius: 10px;
+      content: '';
+      background: linear-gradient(45deg, #ff0000, #ff7300, #fffb00, #48ff00, #00ffd5, #002bff, #7a00ff, #ff00c8, #ff0000);
+      position: absolute;
+      top: -200%;
+      left: -200%;
+      background-size: 400%;
+      z-index: -1;
+      filter: blur(5px);
+      width: 200%;
+      height: 200%;
+      animation: glowing 8s linear infinite;
+      opacity: 0;
+      transition: opacity .3s ease-in-out;
+      border-radius: 10px;
     }
 
     .glow-on-hover:active {
-        color: #000
+      color: #000
     }
 
     .glow-on-hover:active:after {
-        background: transparent;
+      background: transparent;
     }
 
     .glow-on-hover:hover:before {
-        opacity: 1;
+      opacity: 1;
     }
 
     .glow-on-hover:after {
-        z-index: -1;
-        content: '';
-        position: absolute;
-        width: 100%;
-        height: 100%;
-        background: #111;
-        left: 0;
-        top: 0;
-        border-radius: 10px;
+      z-index: -1;
+      content: '';
+      position: absolute;
+      width: 100%;
+      height: 100%;
+      background: #111;
+      left: 0;
+      top: 0;
+      border-radius: 10px;
     }
 
     @keyframes glowing {
-        0% { background-position: 0 0; }
-        50% { background-position: 400% 0; }
-        100% { background-position: 0 0; }
+      0% {
+        background-position: 0 0;
+      }
+
+      50% {
+        background-position: 400% 0;
+      }
+
+      100% {
+        background-position: 0 0;
+      }
     }
 
     /* Input field styling */
     #chatbox {
-        border-radius: 10px;
-        background-color: rgba(255,255,255,0.1);
-        color: white;
-        border: 1px solid rgba(255,255,255,0.2);
-        padding-left: 15px;
+      border-radius: 10px;
+      background-color: rgba(255, 255, 255, 0.1);
+      color: white;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      padding-left: 15px;
     }
 
     #chatbox::placeholder {
-        color: rgba(255,255,255,0.6);
+      color: rgba(255, 255, 255, 0.6);
     }
 
     #chatbox:focus {
-        background-color: rgba(255,255,255,0.15);
-        border-color: #0d6efd;
-        box-shadow: 0 0 0 0.25rem rgba(13,110,253,.25);
+      background-color: rgba(255, 255, 255, 0.15);
+      border-color: #0d6efd;
+      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, .25);
     }
   </style>
 
   <!-- Stylesheets -->
   <link rel="stylesheet" href="style.css" />
   <link rel="shortcut icon" href="avatar.png" type="image/x-icon">
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet"/>
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.1/font/bootstrap-icons.css">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <link rel="stylesheet" href="assets/vendore/texllate/animate.css">
@@ -372,7 +397,7 @@
     }
 
     // Navigate to Home (same tab only)
-    document.addEventListener('DOMContentLoaded', function() {
+    document.addEventListener('DOMContentLoaded', function () {
       const goHomeLink = document.getElementById('goHomeLink');
       if (goHomeLink) {
         goHomeLink.addEventListener('click', (ev) => {
@@ -384,49 +409,49 @@
   </script>
 
   <div class="container">
-  <!-- Main Content -->
-  <section class="main-content">
-    <div class="image-container text-center">
-      <div class="glow-circle mt-4">
-        <video autoplay muted loop playsinline>
-          <source src="assets/img/Iron_Man_Hologram_Video_Generation.mp4" type="video/mp4" />
-          Your browser does not support the video tag.
-        </video>
+    <!-- Main Content -->
+    <section class="main-content">
+      <div class="image-container text-center">
+        <div class="glow-circle mt-4">
+          <video id="avatar-video" autoplay muted loop playsinline>
+            <source src="assets/img/Idle.mp4" type="video/mp4" />
+            Your browser does not support the video tag.
+          </video>
+        </div>
+        <h1>J A R V I S</h1>
+        <p>I'm a Virtual Assistant. How may I help you?</p>
       </div>
-      <h1>J A R V I S</h1>
-      <p>I'm a Virtual Assistant. How may I help you?</p>
+    </section>
+
+    <div class="input-display text-center">
+      <i class="fas fa-microphone-alt"></i>
+      <h1 class="content">Say "Hey Jarvis" to start</h1>
     </div>
-  </section>
 
-      <div class="input-display text-center">
-        <i class="fas fa-microphone-alt"></i>
-        <h1 class="content">Say "Hey Jarvis" to start</h1>
-      </div>
+    <div id="siri-container" class="mt-4" hidden>
+      <div id="SiriWave"></div>
+      <!-- <div id="ironman-3d-container"></div> -->
+      <div id="Oval"></div>
+    </div>
 
-      <div id="siri-container" class="mt-4" hidden>
-        <div id="SiriWave"></div>
-        <div id="ironman-3d-container"></div>
-        <div id="Oval"></div>
-      </div>
-
-      <div id="Loading" class="mt-3" hidden>
-        <h3 id="jarvis-response" class="siri-message text-center">
-          <li>Ask me anything...</li>
-        </h3>
-        <div id="Loader" hidden>
-          <div class="loader">
-            <span></span><span></span><span></span><span></span><span></span>
-          </div>
+    <div id="Loading" class="mt-3" hidden>
+      <h3 id="jarvis-response" class="siri-message text-center">
+        <li>Ask me anything...</li>
+      </h3>
+      <div id="Loader" hidden>
+        <div class="loader">
+          <span></span><span></span><span></span><span></span><span></span>
         </div>
-        <div id="TypingDots" hidden>
-          <div class="typing">
-            <div class="typing__dot"></div>
-            <div class="typing__dot"></div>
-            <div class="typing__dot"></div>
-          </div>
-        </div>
-        <div id="VoicePreviewArea"></div>
       </div>
+      <div id="TypingDots" hidden>
+        <div class="typing">
+          <div class="typing__dot"></div>
+          <div class="typing__dot"></div>
+          <div class="typing__dot"></div>
+        </div>
+      </div>
+      <div id="VoicePreviewArea"></div>
+    </div>
     </section>
 
     <!-- Chat + Side Image -->
@@ -434,30 +459,31 @@
       <div id="receiverTextArea">
       </div>
 
-     <!-- Floating Top-Right Image -->
-            <div style="
+      <!-- Floating Top-Right Image -->
+      <div style="
                 position: fixed;
                 top: 20px;
                 right: 20px;
                 z-index: 999;
             ">
-            <img src="assets/img/jarvis.png" alt="Side Info" style="max-width: 150px; border-radius: 10px;" />
-            </div>
+        <img src="assets/img/jarvis.png" alt="Side Info" style="max-width: 150px; border-radius: 10px;" />
+      </div>
 
-            <div style="
+      <div style="
                 position: fixed;
                 top: 0;
                 left: 0;
                 z-index: 999;
             ">
-                <!-- <img src="assets/img/Initializing.gif" alt="Side Info" style="width: 300px; height: auto; border-radius: 10px;" /> -->
-            </div>
+        <!-- <img src="assets/img/Initializing.gif" alt="Side Info" style="width: 300px; height: auto; border-radius: 10px;" /> -->
+      </div>
     </div>
 
 
     <!-- Generated Image -->
     <div class="text-center mt-4">
-      <img id="generated-image" src="" alt="Generated" style="display: none; max-width: 90%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
+      <img id="generated-image" src="" alt="Generated"
+        style="display: none; max-width: 90%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
     </div>
 
     <!-- Input Section -->
@@ -478,7 +504,8 @@
     <!-- Feedback Widget -->
     <div class="feedback-widget">
       <div class="feedback-item"><i class="bi bi-hand-thumbs-up"></i><span class="count" id="like-count">0</span></div>
-      <div class="feedback-item"><i class="bi bi-hand-thumbs-down"></i><span class="count" id="dislike-count">0</span></div>
+      <div class="feedback-item"><i class="bi bi-hand-thumbs-down"></i><span class="count" id="dislike-count">0</span>
+      </div>
       <div class="feedback-item"><i class="bi bi-chat-dots"></i><span class="count" id="comment-count">0</span></div>
     </div>
   </div>
@@ -621,7 +648,7 @@
 
     // Expose to Eel
     function stub(name) {
-      eel.expose(window[name] || (() => {}));
+      eel.expose(window[name] || (() => { }));
     }
 
     ["DisplayMessage", "ShowSiriWave", "HideSiriWave", "ShowLoader", "HideLoader",
@@ -629,23 +656,24 @@
       .forEach(stub);
   </script>
 </body>
+
 </html>
 xt", "showImage", "hideImage"]
-      .forEach(stub);
+.forEach(stub);
 
-    // --- Navigation Logic ---
-    const goHomeLinkNavbar = document.getElementById('goHome');
-    if (goHomeLinkNavbar) {
-      goHomeLinkNavbar.addEventListener('click', (e) => {
-        e.preventDefault();
-        safeRedirectTo('home.html');
-      });
-    }
+// --- Navigation Logic ---
+const goHomeLinkNavbar = document.getElementById('goHome');
+if (goHomeLinkNavbar) {
+goHomeLinkNavbar.addEventListener('click', (e) => {
+e.preventDefault();
+safeRedirectTo('home.html');
+});
+}
 
-    const goHomeLinkArrow = document.getElementById('goHomeLink');
-    if (goHomeLinkArrow) {
-      goHomeLinkArrow.addEventListener('click', (e) => {
-        e.preventDefault();
-        safeRedirectTo('home.html');
-      });
-    }
+const goHomeLinkArrow = document.getElementById('goHomeLink');
+if (goHomeLinkArrow) {
+goHomeLinkArrow.addEventListener('click', (e) => {
+e.preventDefault();
+safeRedirectTo('home.html');
+});
+}

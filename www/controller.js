@@ -34,6 +34,8 @@ function downloadCompletedFile(base64_data, filename) {
 
 // Function to append user messages as bubbles to the chat area
 // This function is crucial for user messages to appear in the chat history.
+// COMMENTED OUT TO USE main.js VERSION WHICH HANDLES AVATAR SENTIMENT
+/*
 function appendUserMessage(message) {
     const area = document.getElementById("receiverTextArea");
     if (!area) return;
@@ -44,6 +46,7 @@ function appendUserMessage(message) {
     area.appendChild(userBubble);
     area.scrollTop = area.scrollHeight;
 }
+*/
 
 // Updated receiverText function to correctly handle chat messages
 eel.expose(receiverText);

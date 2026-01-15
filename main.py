@@ -746,6 +746,15 @@ class SpeechEngine:
         global is_speaking
         is_speaking = True
         filename = f"speech_{uuid.uuid4().hex}.mp3"
+        
+        # --- [AVATAR SIGNAL] START ---
+        try:
+            eel.signal_speech_start()
+            print("[AVATAR] Signal sent: Speech Start")
+        except Exception as es:
+            print(f"[⚠️ AVATAR] Failed to signal speech start: {es}")
+        # -----------------------------
+
         try:
             voices = engine.getProperty('voices')
             engine.setProperty('voice', voices[0].id)
@@ -773,6 +782,13 @@ class SpeechEngine:
             print(f"[❌ SPEECH] TTS Error: {e}")
         finally:
             is_speaking = False
+            # --- [AVATAR SIGNAL] END ---
+            try:
+                eel.signal_speech_end()
+                print("[AVATAR] Signal sent: Speech End")
+            except Exception as es:
+                print(f"[⚠️ AVATAR] Failed to signal speech end: {es}")
+            # ---------------------------
 
     def speak(self, text, block=False):
         """
@@ -879,7 +895,7 @@ def listen():
         finally:
             socket.setdefaulttimeout(original_timeout)
             
-        print(f"Recognized command: {command}")
+        print(f"[AUDIO] Speech recognized: \"{command}\"")
         eel.HideTyping() # Hide typing indicator after recognition
 
         # Logic for wake word detection ('jarvis') or continuous listening
@@ -953,7 +969,7 @@ def listen_for_response(dynamic_pause_threshold=1.2): # Default reduced pause th
 
     try:
         command = r.recognize_google(audio, language='en-IN')
-        print(f"Recognized response: {command}")
+        print(f"[AUDIO] Speech recognized: \"{command}\"")
         eel.HideTyping()
         return command
     except sr.UnknownValueError:
@@ -1012,7 +1028,7 @@ def listen_for_response_answer(dynamic_pause_threshold=1.2): # Default reduced p
 
     try:
         command = r.recognize_google(audio, language='en-IN')
-        print(f"Recognized response: {command}")
+        print(f"[AUDIO] Speech recognized: \"{command}\"")
         eel.HideTyping()
         return command
     except sr.UnknownValueError:
@@ -3899,7 +3915,7 @@ def start(command_queue):
     global hotword_queue
     hotword_queue = command_queue
 
-    speak("Initializing Jarvis...")
+    # speak("Initializing Jarvis...")
 
     eel.init("www")
 
