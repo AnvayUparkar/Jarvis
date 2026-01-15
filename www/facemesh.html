@@ -1,0 +1,239 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Jarvis - FaceMesh Integration</title>
+
+    <!-- Existing Styles -->
+    <link rel="stylesheet" href="style.css" />
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.0.2/dist/css/bootstrap.min.css" rel="stylesheet" />
+
+    <!-- TensorFlow.js Dependencies (CDN) -->
+    <script src="https://unpkg.com/@tensorflow/tfjs-core@2.4.0/dist/tf-core.js"></script>
+    <script src="https://unpkg.com/@tensorflow/tfjs-converter@2.4.0/dist/tf-converter.js"></script>
+    <script src="https://unpkg.com/@tensorflow/tfjs-backend-webgl@2.4.0/dist/tf-backend-webgl.js"></script>
+    <script
+        src="https://unpkg.com/@tensorflow-models/face-landmarks-detection@0.0.1/dist/face-landmarks-detection.js"></script>
+
+    <style>
+        body {
+            background-color: #121212;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            overflow: hidden;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+
+        .facemesh-container {
+            position: relative;
+            width: 640px;
+            height: 480px;
+            border: 2px solid #00ffff;
+            border-radius: 10px;
+            box-shadow: 0 0 20px rgba(0, 255, 255, 0.3);
+            background-color: #000;
+        }
+
+        #video-input {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            object-fit: cover;
+            border-radius: 8px;
+        }
+
+        #output-canvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            transform: scaleX(-1);
+            pointer-events: none;
+        }
+
+        /* Emotion Display */
+        .emotion-display {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(10px);
+            padding: 15px 25px;
+            border-radius: 15px;
+            border: 2px solid rgba(0, 255, 255, 0.5);
+            text-align: center;
+            z-index: 10;
+        }
+
+        .emotion-emoji {
+            font-size: 64px;
+            display: block;
+            margin-bottom: 5px;
+            transition: transform 0.3s ease;
+        }
+
+        .emotion-emoji.emotion-happy {
+            animation: bounce 0.5s ease;
+        }
+
+        .emotion-emoji.emotion-sad {
+            animation: shake 0.5s ease;
+        }
+
+        .emotion-emoji.emotion-surprised {
+            animation: pop 0.3s ease;
+        }
+
+        @keyframes bounce {
+
+            0%,
+            100% {
+                transform: translateY(0);
+            }
+
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        @keyframes shake {
+
+            0%,
+            100% {
+                transform: translateX(0);
+            }
+
+            25% {
+                transform: translateX(-5px);
+            }
+
+            75% {
+                transform: translateX(5px);
+            }
+        }
+
+        @keyframes pop {
+            0% {
+                transform: scale(1);
+            }
+
+            50% {
+                transform: scale(1.2);
+            }
+
+            100% {
+                transform: scale(1);
+            }
+        }
+
+        #emotion-label {
+            font-size: 14px;
+            color: #00ffff;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+        }
+
+        .btn-jarvis {
+            background: rgba(0, 255, 255, 0.1);
+            color: #00ffff;
+            border: 1px solid #00ffff;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+
+        .btn-jarvis:hover {
+            background: rgba(0, 255, 255, 0.3);
+            box-shadow: 0 0 15px rgba(0, 255, 255, 0.5);
+        }
+
+        .back-link {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            color: rgba(255, 255, 255, 0.7);
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: #00ffff;
+        }
+
+        .legend {
+            margin-top: 15px;
+            display: flex;
+            gap: 20px;
+            font-size: 14px;
+            color: rgba(255, 255, 255, 0.6);
+        }
+
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+    </style>
+</head>
+
+<body>
+
+    <a href="index.html" class="back-link">← Back to Main Interface</a>
+
+    <h2 class="mb-4">FaceMesh + Emotion Detection</h2>
+
+    <div class="facemesh-container">
+        <video id="video-input" playsinline autoplay muted></video>
+        <canvas id="output-canvas"></canvas>
+
+        <!-- Emotion Display Overlay -->
+        <div class="emotion-display">
+            <span id="emotion-emoji" class="emotion-emoji">😐</span>
+            <span id="emotion-label">Neutral</span>
+        </div>
+    </div>
+
+    <div class="controls">
+        <button class="btn-jarvis" onclick="startFaceMesh()">Start Detection</button>
+        <button class="btn-jarvis" onclick="stopFaceMesh()">Stop</button>
+    </div>
+
+    <div class="legend">
+        <div class="legend-item">😊 Happy</div>
+        <div class="legend-item">😢 Sad</div>
+        <div class="legend-item">😮 Surprised</div>
+        <div class="legend-item">😠 Angry</div>
+        <div class="legend-item">😬 Tensed</div>
+        <div class="legend-item">😐 Neutral</div>
+    </div>
+
+    <div class="mt-3 text-muted">
+        <small>Powered by TensorFlow.js & MediaPipe</small>
+    </div>
+
+    <!-- Eel for communication if needed -->
+    <script type="text/javascript" src="/eel.js"></script>
+
+    <!-- Logic -->
+    <script src="facemesh.js"></script>
+
+</body>
+
+</html>

@@ -347,6 +347,30 @@
     }
   </style>
 
+   <!-- FaceMesh Overlay Styles -->
+  <style>
+    .facemesh-overlay-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+      /* Pass clicks through */
+      z-index: 50;
+      /* Below UI elements but above background */
+      display: none;
+      /* Hidden by default */
+    }
+
+    .facemesh-video {
+      opacity: 0;
+      /* Hide video, only show mesh? Or show both? */
+      /* opacity: 0.3; For debugging */
+    }
+  </style>
+
+  
   <!-- Stylesheets -->
   <link rel="stylesheet" href="style.css" />
   <link rel="shortcut icon" href="avatar.png" type="image/x-icon">
