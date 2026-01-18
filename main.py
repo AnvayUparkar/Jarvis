@@ -42,6 +42,17 @@ from shutdown_and_restart import *
 from image import * # Ensure this import is active for generate_image_for_jarvis
 from token_store import *
 from answer_bot import answer_mcq_question # Import the answer_bot function
+# === Wav2Lip Lip-Sync Service (Performance Optimized) ===
+try:
+    from wav2lip_service import generate_lipsync_video, check_wav2lip_setup, initialize_at_startup
+    WAV2LIP_AVAILABLE = check_wav2lip_setup()
+    if WAV2LIP_AVAILABLE:
+        pass # Initialization moved to start() to avoid multiprocessing duplication
+except ImportError:
+    print("[WAV2LIP] ⚠️ wav2lip_service not found. Lip-sync disabled.")
+    WAV2LIP_AVAILABLE = False
+    def generate_lipsync_video(*args, **kwargs):
+        return None
 import datetime as dt # Changed import to alias datetime as dt
 from datetime import timedelta # Keep timedelta separate if preferred, or also use dt.timedelta
 import functools # For @functools.wraps in decorators
@@ -75,11 +86,12 @@ class AvatarVideoController:
     def __init__(self):
         self.current_state = "IDLE"
         self._reaction_lock = threading.Lock()
+        
         self.last_reaction_time = 0
-        self.reaction_cooldown = 2   # Reduced to 2s as requested
+        self.reaction_cooldown = 3600  # 1 hour global cooldown (requested by user)
+        
         self.is_reacting = False
         self.last_emotion = None
-        self.happy_onset_time = None # Track start of happy emotion
 
     def play_video(self, state_name):
         try:
@@ -90,8 +102,6 @@ class AvatarVideoController:
             print(f"[AVATAR] Error setting video state: {e}")
 
     # ... [Existing _execute functions] ...
-
-    # ... [Existing trigger_reaction function] ...
 
     def set_emotion(self, emotion):
         emotion = emotion.lower().strip()
@@ -127,7 +137,6 @@ class AvatarVideoController:
             except: pass
         finally:
             self.is_reacting = False
-            self.last_reaction_time = time.time()
 
     def _execute_sad_reaction(self, message, duration):
         """Parallel: Sad Video AND Speech start simultaneously. Wait for both."""
@@ -138,7 +147,6 @@ class AvatarVideoController:
             self.play_video("SAD")
             
             # 2. Start Speech immediately (Parallel)
-            # We use a separate thread for blocking speech so we can wait for video too
             print(f"[AVATAR] Speaking (Parallel): '{message}'")
             speech_thread = threading.Thread(target=speak, args=(message,), kwargs={'block':True})
             speech_thread.start()
@@ -158,7 +166,6 @@ class AvatarVideoController:
             except: pass
         finally:
             self.is_reacting = False
-            self.last_reaction_time = time.time()
 
     def _execute_surprised_reaction(self, message):
         """Immediate: Speaking Video + Audio -> Idle"""
@@ -170,21 +177,23 @@ class AvatarVideoController:
             print(f"[AVATAR] Error: {e}")
         finally:
             self.is_reacting = False
-            self.last_reaction_time = time.time()
 
     def trigger_reaction(self, emotion):
         if self.is_reacting or self.current_state == "SPEAKING":
             return False
         
-        # Standard Cooldown Logic: Always wait 'reaction_cooldown' seconds after last reaction
+        # GLOBAL Cooldown Verification
         time_since_last = time.time() - self.last_reaction_time
-        
         if time_since_last < self.reaction_cooldown:
+            # print(f"[AVATAR] Skipping emotion reaction (Cooldown: {int(self.reaction_cooldown - time_since_last)}s left)")
             return False
             
         with self._reaction_lock:
             if self.is_reacting: return False
             self.is_reacting = True
+        
+        # Update global timestamp immediately
+        self.last_reaction_time = time.time()
         
         self.last_emotion = emotion
         message = self.EMOTION_MESSAGES.get(emotion)
@@ -952,6 +961,7 @@ class SpeechEngine:
         global is_speaking
         is_speaking = True
         filename = f"speech_{uuid.uuid4().hex}.mp3"
+        lipsync_video = None
         
         # --- [AVATAR SIGNAL] START ---
         try:
@@ -970,6 +980,26 @@ class SpeechEngine:
             try:
                 tts = gTTS(text=text, lang='en', slow=False)
                 tts.save(filename)
+                
+                # === WAV2LIP LIP-SYNC INTEGRATION ===
+                if WAV2LIP_AVAILABLE:
+                    print("[WAV2LIP] 🎬 Generating lip-sync video...")
+                    lipsync_video = generate_lipsync_video(filename, text)
+                    
+                    if lipsync_video:
+                        print(f"[WAV2LIP] ✅ Video ready: {lipsync_video}")
+                        try:
+                            # Send video path to frontend for playback
+                            eel.play_lipsync_video(lipsync_video)()
+                            print("[WAV2LIP] 📺 Video sent to frontend")
+                        except Exception as ve:
+                            print(f"[WAV2LIP] ⚠️ Frontend video error: {ve}")
+                            lipsync_video = None  # Fall back to audio
+                    else:
+                        print("[WAV2LIP] ⚠️ Video generation failed, using audio only")
+                # =====================================
+                
+                # Play audio (either with video or standalone)
                 pygame.mixer.music.load(filename)
                 pygame.mixer.music.play()
                 while pygame.mixer.music.get_busy():
@@ -4129,6 +4159,10 @@ def hotword_listener_thread(q):
 def start(command_queue):
     global hotword_queue
     hotword_queue = command_queue
+    
+    # Initialize Wav2Lip engine in background (Main Process only)
+    if WAV2LIP_AVAILABLE:
+        initialize_at_startup()
 
     # speak("Initializing Jarvis...")
 

@@ -12,10 +12,10 @@ import subprocess
 import os
 import sys
 import time
-import eel
-from main import start 
-from main import * 
-from token_store import *
+
+# NOTE: Do NOT import `main` here. It contains heavy dependencies (Wav2Lip, etc.)
+# that would slow down or block the hotword detection process.
+# Imports are deferred to inside the process functions where they're needed.
 
 
 def startJarvis(command_queue):

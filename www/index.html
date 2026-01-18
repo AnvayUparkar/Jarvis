@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>MIRAGE - Virtual Assistant</title>
+  <title>J.A.R.V.I.S - Virtual Assistant</title>
 
   <!-- Styles -->
   <!-- Styles -->
@@ -409,7 +409,7 @@
 <body>
   <!-- Navigation Bar -->
   <div class="navbar-top">
-    <a href="index.html" class="navbar-brand">M I R A G E</a>
+    <a href="index.html" class="navbar-brand">J.A.R.V.I.S</a>
     <a href="#" id="goHomeLink" class="navbar-link">← Home</a>
   </div>
   <script>
@@ -436,13 +436,10 @@
     <!-- Main Content -->
     <section class="main-content">
       <div class="image-container text-center">
-        <div class="glow-circle mt-4">
-          <video id="avatar-video" autoplay muted loop playsinline>
-            <source src="assets/img/Idle.mp4" type="video/mp4" />
-            Your browser does not support the video tag.
-          </video>
+        <div class="glow-circle mt-4" id="avatar-container" style="overflow: hidden; position: relative;">
+          <!-- Three.js Canvas will be mounted here -->
         </div>
-        <h1>M I R A G E</h1>
+        <h1>J.A.R.V.I.S</h1>
         <p>I'm a Virtual Assistant. How may I help you?</p>
       </div>
     </section>
@@ -546,6 +543,10 @@
   <!-- TensorFlow.js and FaceMesh Dependencies -->
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@3.18.0"></script>
   <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/face-landmarks-detection@0.0.3"></script>
+
+  <!-- Three.js (Legacy r128 for global THREE.GLTFLoader) -->
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/GLTFLoader.js"></script>
 
   <script type="text/javascript" src="/eel.js"></script>
   <script src="main.js"></script>

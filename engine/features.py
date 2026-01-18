@@ -31,7 +31,7 @@ except ImportError:
 # Path to Porcupine model file (.ppn)
 # Using the full path to the Jarvis model included in the repository
 # Path to Porcupine model file (.ppn)
-# Using the full path to the "Hello Mirage" model included in the repository
+# Using the "Hello Mirage" wake word model (v4.0.0 compatible with pvporcupine library)
 PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy\Jarvis\Hello-Mirage_en_windows_v4_0_0.ppn"
 
 # Configuration

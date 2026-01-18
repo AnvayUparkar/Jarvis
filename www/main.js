@@ -89,19 +89,14 @@ function receiverText(responseText) {
 }
 
 // ✅ Expose appendUserMessage so Python can use it for spoken commands
+// (Note: This function is internally overridden later in the file for sentiment analysis)
 eel.expose(appendUserMessage);
 function appendUserMessage(message) {
-    const chatArea = document.getElementById("receiverTextArea");
-    if (!chatArea) {
-        console.warn("receiverTextArea not found for appendUserMessage.");
-        return;
+    console.log("appendUserMessage called via Eel");
+    // Forward to the latest global implementation (which includes sentiment analysis)
+    if (window.appendUserMessageImpl) {
+        window.appendUserMessageImpl(message);
     }
-
-    const userBubble = document.createElement("div");
-    userBubble.className = "chat-bubble sender";
-    userBubble.innerHTML = `<div class='chat-message user-message'><b>You:</b><br>${message}</div>`;
-    chatArea.appendChild(userBubble);
-    chatArea.scrollTop = chatArea.scrollHeight;
 }
 
 // Show Image
@@ -250,113 +245,195 @@ function displayPrompt(text) {
 // ----------------------------------------------------
 // 🧠 AVATAR VIDEO CONTROLLER (STATE MACHINE)
 // ----------------------------------------------------
-class AvatarController {
+// ----------------------------------------------------
+// 🖼️ STATIC AVATAR IMAGE CONTROLLER
+// Displays avatar.jpg in glow circle, lip-sync video overlays on top
+// ----------------------------------------------------
+class AvatarImage {
     constructor() {
-        this.video = document.getElementById("avatar-video");
-        this.basePath = "assets/img/";
-        this.currentState = "IDLE";
+        this.container = document.getElementById("avatar-container");
         this.isSpeaking = false;
+        this.currentEmotion = "neutral";
 
-        // Preload videos to avoid buffering delays
-        this.assets = {
-            IDLE: "Idle.mp4",
-            HAPPY: "Happy.mp4",
-            SAD: "Sad.mp4",
-            SPEAKING: "Speaking.mp4",
-            THINKING: "Thinking.mp4"
+        if (this.container) {
+            this.init();
+        } else {
+            console.warn("[AVATAR] Container not found, retrying in 500ms...");
+            setTimeout(() => this.init(), 500);
+        }
+    }
+
+    init() {
+        this.container = document.getElementById("avatar-container");
+        if (!this.container) {
+            console.error("[AVATAR] avatar-container not found!");
+            return;
+        }
+
+        console.log("[AVATAR] Initializing static image avatar...");
+
+        // Clear container
+        this.container.innerHTML = "";
+
+        // Create image element for avatar.jpg (shows by default, hidden when video plays)
+        this.avatarImg = document.createElement("img");
+        this.avatarImg.id = "avatar-image";
+        this.avatarImg.src = "assets/img/avatar.jpg";
+        this.avatarImg.alt = "MIRAGE Avatar";
+        this.avatarImg.style.cssText = `
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            border-radius: 50%;
+            display: block;
+        `;
+
+        // Error handling
+        this.avatarImg.onerror = () => {
+            console.error("[AVATAR] Failed to load avatar.jpg");
+            this.container.innerHTML = "<p style='color:#fff;text-align:center;padding-top:40%;'>Avatar not found</p>";
         };
 
-        console.log("[AVATAR] Initialized. State: IDLE");
+        this.avatarImg.onload = () => {
+            console.log("[AVATAR] ✅ avatar.jpg loaded successfully");
+        };
+
+        this.container.appendChild(this.avatarImg);
     }
 
-    play(stateName) {
-        if (!this.video) {
-            this.video = document.getElementById("avatar-video");
-            if (!this.video) return;
-        }
-
-        const filename = this.assets[stateName];
-        if (!filename) return;
-
-        const newSrc = this.basePath + filename;
-
-        // Prevent reloading if already playing the same file
-        // BUT: if we are restarting a loop or transitioning, we might need to force it.
-        // For simple state changes:
-        if (this.video.getAttribute("src") === newSrc && !this.video.paused) {
-            return;
-        }
-
-        console.log(`[AVATAR] Playing ${filename} (${stateName})`);
-
-        // Stop current
-        this.video.pause();
-
-        // Switch
-        this.video.src = newSrc;
-        this.video.load(); // Important for smooth switch
-
-        const playPromise = this.video.play();
-        if (playPromise !== undefined) {
-            playPromise.catch(error => {
-                console.warn("[AVATAR] Play prevented:", error);
-            });
-        }
-
-        this.currentState = stateName;
-    }
-
-    // Triggered by Sentiment Analysis Result
+    // Emotion methods (for compatibility with existing code)
     setEmotion(sentiment) {
-        console.log(`[AVATAR] Setting emotion for: ${sentiment}`);
-
-        // USER REQUEST UPDATE: 
-        // "Till I don't wake up Jarvis... idle state... when it start speaking... then only speaking animation"
-        // This implies we skip the "Happy/Sad" lead-in videos to maintain strict Idle state until speech.
-
-        if (sentiment === "POSITIVE") {
-            this.play("HAPPY");
-            console.log("[AVATAR] Emotion POSITIVE (Playing Happy lead-in)");
-        } else if (sentiment === "NEGATIVE") {
-            this.play("SAD");
-            console.log("[AVATAR] Emotion NEGATIVE (Playing Sad lead-in)");
-        } else {
-            if (this.currentState !== "IDLE" && this.currentState !== "SPEAKING") {
-                this.play("IDLE");
-            }
-        }
+        console.log(`[AVATAR] Emotion: ${sentiment}`);
+        this.currentEmotion = sentiment;
     }
 
+    // Speech signaling methods
     startSpeaking() {
-        console.log("[AVATAR] Speech Started 🔊");
         this.isSpeaking = true;
-        // If we are currently in SAD state, DO NOT switch to SPEAKING video.
-        // This allows 'SAD' video to play while audio speaks (Parallel mode).
-        if (this.currentState === "SAD") {
-            console.log("[AVATAR] Keeping SAD video during speech (Parallel Mode)");
-            return;
-        }
-        this.play("SPEAKING");
+        console.log("[AVATAR] Speech Signaling: START");
     }
 
     stopSpeaking() {
-        console.log("[AVATAR] Speech Ended 🔇");
         this.isSpeaking = false;
-        // If we were in SAD, we typically return to IDLE via main.py logic anyway.
-        // But for safety, we can switch to IDLE here too.
-        this.play("IDLE");
+        console.log("[AVATAR] Speech Signaling: STOP");
+    }
+
+    // Placeholder for audio blob (lip-sync handles this now)
+    playAudioBlob(base64String) {
+        console.log("[AVATAR] Audio blob received (handled by lip-sync system)");
     }
 }
 
 // Global Instance
-const avatar = new AvatarController();
+const avatar = new AvatarImage();
 
-// Exposed function for Python to control Avatar
+
+// Exposed function for Python to control Avatar/Play Audio
+eel.expose(play_audio_blob);
+function play_audio_blob(base64_audio) {
+    try {
+        if (avatar) {
+            avatar.playAudioBlob(base64_audio);
+        }
+    } catch (e) {
+        console.error("play_audio_blob error:", e);
+    }
+}
+
+// Legacy support for state calls (mapped to emotions fallback)
 eel.expose(js_play_avatar_video);
 function js_play_avatar_video(stateName) {
-    if (avatar) {
-        avatar.play(stateName);
+    if (!avatar) return;
+    // Map old video states to emotions/actions
+    if (stateName === "HAPPY") avatar.setEmotion("happy");
+    if (stateName === "SAD") avatar.setEmotion("sad");
+    if (stateName === "IDLE") avatar.setEmotion("neutral");
+}
+
+// ----------------------------------------------------
+// 🎬 WAV2LIP LIP-SYNC VIDEO PLAYER
+// ----------------------------------------------------
+
+// Helper function to show/hide avatar elements
+function setAvatarVisibility(show) {
+    const container = document.getElementById("avatar-container");
+    if (!container) return;
+
+    const avatarImg = container.querySelector("#avatar-image");
+    const video = container.querySelector("#lipsync-video");
+
+    if (show) {
+        // Show avatar, hide video
+        if (avatarImg) avatarImg.style.display = "block";
+        if (video) video.style.display = "none";
+    } else {
+        // Hide avatar, show video
+        if (avatarImg) avatarImg.style.display = "none";
+        if (video) video.style.display = "block";
     }
+}
+
+eel.expose(play_lipsync_video);
+function play_lipsync_video(videoPath) {
+    console.log("[LIPSYNC] Playing video:", videoPath);
+
+    const container = document.getElementById("avatar-container");
+    if (!container) {
+        console.error("[LIPSYNC] avatar-container not found!");
+        return;
+    }
+
+    // Hide avatar image immediately
+    setAvatarVisibility(false);
+
+    // Create or reuse video element
+    let video = container.querySelector("#lipsync-video");
+    if (!video) {
+        video = document.createElement("video");
+        video.id = "lipsync-video";
+        video.style.cssText = `
+            width: calc(100% - 20px);
+            height: calc(100% - 20px);
+            object-fit: cover;
+            border-radius: 50%;
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            z-index: 10;
+        `;
+        video.autoplay = true;
+        video.muted = true; // Mute video since audio plays separately via pygame
+        video.playsInline = true;
+
+        // Restore avatar image when video ends
+        video.onended = () => {
+            console.log("[LIPSYNC] Video ended, restoring avatar image");
+            setAvatarVisibility(true);
+        };
+
+        video.onerror = (e) => {
+            console.error("[LIPSYNC] Video error:", e);
+            setAvatarVisibility(true);
+        };
+
+        container.appendChild(video);
+    }
+
+    // Make sure video is visible
+    video.style.display = "block";
+
+    // Add cache-busting parameter to ensure fresh video loads
+    const timestamp = new Date().getTime();
+    video.src = videoPath + "?t=" + timestamp;
+
+    // Force load and play
+    video.load();
+    video.play().then(() => {
+        console.log("[LIPSYNC] Video playback started");
+    }).catch(e => {
+        console.error("[LIPSYNC] Play failed:", e);
+        setAvatarVisibility(true);
+    });
 }
 
 // ----------------------------------------------------
@@ -397,12 +474,24 @@ async function analyzeSentiment(text) {
 
 eel.expose(signal_speech_start);
 function signal_speech_start() {
-    avatar.startSpeaking();
+    try {
+        if (avatar && typeof avatar.startSpeaking === 'function') {
+            avatar.startSpeaking();
+        }
+    } catch (e) {
+        console.error("signal_speech_start error:", e);
+    }
 }
 
 eel.expose(signal_speech_end);
 function signal_speech_end() {
-    avatar.stopSpeaking();
+    try {
+        if (avatar && typeof avatar.stopSpeaking === 'function') {
+            avatar.stopSpeaking();
+        }
+    } catch (e) {
+        console.error("signal_speech_end error:", e);
+    }
 }
 
 // Override the existing appendUserMessage to inject sentiment analysis
@@ -411,12 +500,12 @@ function signal_speech_end() {
 const originalAppendUserMessage = window.appendUserMessage || (() => { });
 
 // Re-expose/Refine appendUserMessage
-eel.expose(appendUserMessage);
-function appendUserMessage(message) {
+// Re-expose/Refine appendUserMessage implementation
+window.appendUserMessageImpl = function (message) {
     const chatArea = document.getElementById("receiverTextArea");
     if (!chatArea) return;
 
-    // UI Update (Replicating original logic to ensure it works even if we overwrite)
+    // UI Update
     const userBubble = document.createElement("div");
     userBubble.className = "chat-bubble sender";
     userBubble.innerHTML = `<div class='chat-message user-message'><b>You:</b><br>${message}</div>`;
@@ -424,6 +513,8 @@ function appendUserMessage(message) {
     chatArea.scrollTop = chatArea.scrollHeight;
 
     // NEW: Trigger Sentiment Analysis
-    // "The EXACT SAME TEXT... must be passed into sentiment.js"
     analyzeSentiment(message);
-}
+};
+
+// Override the previous function just in case
+appendUserMessage = window.appendUserMessageImpl;

@@ -12,7 +12,11 @@ venv/
 
 # Virtualenv
 envjarvis/
-
+www/lipsync_output
+venv/
+speech_*
+ffmpeg.zip
+pollinations_output*
 # Credentials and Tokens
 calendar_token.json
 client_secret_*.json
