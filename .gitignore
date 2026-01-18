@@ -17,6 +17,7 @@ venv/
 speech_*
 ffmpeg.zip
 pollinations_output*
+lipsync_cache/
 # Credentials and Tokens
 calendar_token.json
 client_secret_*.json
