@@ -10,10 +10,12 @@ build/
 *.spec
 venv/
 
-# FFmpeg binaries
+# FFmpeg (never commit binaries)
 ffmpeg.exe
+ffprobe.exe
+ffplay.exe
 ffmpeg_extract/
-*.exe
+
 
 # Virtualenv
 envjarvis/
