@@ -10,6 +10,11 @@ build/
 *.spec
 venv/
 
+# FFmpeg binaries
+ffmpeg.exe
+ffmpeg_extract/
+*.exe
+
 # Virtualenv
 envjarvis/
 www/lipsync_output
