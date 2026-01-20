@@ -13,6 +13,7 @@ Author: MIRAGE Team - Performance Optimized
 """
 
 import os
+import platform
 import subprocess
 import hashlib
 import shutil
@@ -63,7 +64,7 @@ def _get_engine():
         import sys
         sys.path.insert(0, str(WAV2LIP_DIR))
         
-        from wav2lip_engine import warmup_engine
+        from wav2lip_engine import warmup_engine # type: ignore
         
         print("[WAV2LIP] 🚀 Initializing persistent inference engine...")
         _engine = warmup_engine(
@@ -118,6 +119,10 @@ def convert_mp3_to_wav(mp3_path: str, wav_path: str = None) -> Optional[str]:
     
     try:
         ffmpeg_cmd = str(FFMPEG_PATH) if FFMPEG_PATH.exists() else "ffmpeg"
+        
+        # On Windows, if we are using the system ffmpeg, use shell=True for best compatibility
+        use_shell = platform.system() == 'Windows' and ffmpeg_cmd == "ffmpeg"
+        
         cmd = [
             ffmpeg_cmd, "-y",
             "-i", mp3_path,
@@ -127,7 +132,10 @@ def convert_mp3_to_wav(mp3_path: str, wav_path: str = None) -> Optional[str]:
             wav_path
         ]
         
-        result = subprocess.run(cmd, capture_output=True, timeout=30)
+        if use_shell:
+            result = subprocess.run(' '.join(cmd), capture_output=True, timeout=30, shell=True)
+        else:
+            result = subprocess.run(cmd, capture_output=True, timeout=30)
         
         if result.returncode == 0 and os.path.exists(wav_path):
             return wav_path
