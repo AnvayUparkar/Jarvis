@@ -1,14 +1,60 @@
 // main.js
 
-// Function to send chat input to Python
-document.getElementById("SendBtn").onclick = function () {
-    const message = document.getElementById("chatbox").value.trim();
-    if (message === "") return;
+let attachedFiles = []; // Global array to store queued files
 
-    window.lastUserInput = message;  // ⬅️ Needed to show in bubble
-    appendUserMessage(message);      // Display user message immediately
-    eel.handle_command_from_frontend(message)();  // Send to Python
-    document.getElementById("chatbox").value = "";
+// Function to send chat input to Python
+document.getElementById("SendBtn").onclick = async function () {
+    const message = document.getElementById("chatbox").value.trim();
+
+    if (message === "" && attachedFiles.length === 0) return;
+
+    if (attachedFiles.length > 0) {
+        // Multi-file upload flow
+        const formData = new FormData();
+        formData.append("message", message);
+        attachedFiles.forEach(file => {
+            formData.append("files", file);
+        });
+
+        try {
+            ShowLoader();
+            const response = await fetch("http://localhost:5014/upload_multi", {
+                method: "POST",
+                body: formData
+            });
+
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+
+            const result = await response.json();
+            console.log("Upload result:", result);
+
+            if (message !== "") {
+                appendUserMessage(message);
+            } else {
+                addChatBubble("sender", `Attached ${attachedFiles.length} files`);
+            }
+
+            // Clear queue and UI
+            attachedFiles = [];
+            updateFileQueueUI();
+            const chatbox = document.getElementById("chatbox");
+            chatbox.value = "";
+            chatbox.style.height = "44px"; // Reset height
+            HideLoader();
+        } catch (error) {
+            console.error("Error sending multi-file request:", error);
+            addChatBubble("receiver", `❌ Error sending files: ${error.message}. <br>Backend service (port 5014) may be unreachable.`);
+            HideLoader();
+        }
+    } else {
+        // Existing single message flow
+        window.lastUserInput = message;
+        appendUserMessage(message);
+        eel.handle_command_from_frontend(message)();
+        const chatbox = document.getElementById("chatbox");
+        chatbox.value = "";
+        chatbox.style.height = "44px"; // Reset height
+    }
 };
 
 // Mic Button
@@ -21,9 +67,21 @@ document.getElementById("MicBtn").onclick = function () {
 };
 
 // Press Enter to send
-document.getElementById("chatbox").addEventListener("keydown", function (event) {
-    if (event.key === "Enter") {
+// Press Enter to send (Shift+Enter for new line)
+const chatbox = document.getElementById("chatbox");
+chatbox.addEventListener("keydown", function (event) {
+    if (event.key === "Enter" && !event.shiftKey) {
+        event.preventDefault(); // Prevent default new line
         document.getElementById("SendBtn").click();
+    }
+});
+
+// Auto-resize textarea
+chatbox.addEventListener("input", function () {
+    this.style.height = 'auto'; // Reset height
+    this.style.height = (this.scrollHeight) + 'px';
+    if (this.value === '') {
+        this.style.height = '44px'; // Reset to min-height if empty
     }
 });
 
@@ -33,26 +91,35 @@ document.getElementById("AttachBtn").onclick = function () {
 };
 
 document.getElementById("FileInput").onchange = function (event) {
-    const file = event.target.files[0];
-    if (file) {
-        const reader = new FileReader();
-        reader.onload = async (e) => {
-            const base64Content = e.target.result.split(',')[1];
-            const filename = file.name;
-            const mimetype = file.type;
-
-            try {
-                await eel.upload_attachment(filename, base64Content, mimetype)();
-                addChatBubble("sender", `Sent file: ${filename}`);
-            } catch (error) {
-                console.error("Error uploading file:", error);
-                addChatBubble("receiver", "Error uploading file. Please try again.");
-            }
-        };
-        reader.readAsDataURL(file);
-    } else {
-        addChatBubble("receiver", "No file selected for upload.");
+    const files = Array.from(event.target.files);
+    if (files.length > 0) {
+        attachedFiles = attachedFiles.concat(files);
+        updateFileQueueUI();
+        // Reset input so the same file can be selected again if needed
+        event.target.value = "";
     }
+};
+
+function updateFileQueueUI() {
+    const queueDiv = document.getElementById("FileQueue");
+    if (!queueDiv) return;
+
+    queueDiv.innerHTML = "";
+    attachedFiles.forEach((file, index) => {
+        const fileBadge = document.createElement("div");
+        fileBadge.className = "bg-dark text-cyan border border-info p-1 px-2 rounded-pill d-flex align-items-center gap-2";
+        fileBadge.style.fontSize = "0.8rem";
+        fileBadge.innerHTML = `
+            <span><i class="bi bi-file-earmark"></i> ${file.name}</span>
+            <i class="bi bi-x-circle-fill text-danger cursor-pointer" onclick="removeAttachedFile(${index})"></i>
+        `;
+        queueDiv.appendChild(fileBadge);
+    });
+}
+
+window.removeAttachedFile = function (index) {
+    attachedFiles.splice(index, 1);
+    updateFileQueueUI();
 };
 
 
@@ -88,15 +155,20 @@ function receiverText(responseText) {
     }
 }
 
-// ✅ Expose appendUserMessage so Python can use it for spoken commands
-// (Note: This function is internally overridden later in the file for sentiment analysis)
 eel.expose(appendUserMessage);
 function appendUserMessage(message) {
-    console.log("appendUserMessage called via Eel");
-    // Forward to the latest global implementation (which includes sentiment analysis)
-    if (window.appendUserMessageImpl) {
-        window.appendUserMessageImpl(message);
-    }
+    const chatArea = document.getElementById("receiverTextArea");
+    if (!chatArea) return;
+
+    // UI Update
+    const userBubble = document.createElement("div");
+    userBubble.className = "chat-bubble sender";
+    userBubble.innerHTML = `<div class='chat-message user-message'><b>You:</b><br>${message}</div>`;
+    chatArea.appendChild(userBubble);
+    chatArea.scrollTop = chatArea.scrollHeight;
+
+    // Trigger Sentiment Analysis
+    analyzeSentiment(message);
 }
 
 // Show Image
@@ -494,27 +566,94 @@ function signal_speech_end() {
     }
 }
 
-// Override the existing appendUserMessage to inject sentiment analysis
-// The original was defined earlier or in other files, but we can overwrite/extend behavior here
-// We need to keep the UI update and ADD the analysis.
-const originalAppendUserMessage = window.appendUserMessage || (() => { });
+// --- Moved from index.html ---
 
-// Re-expose/Refine appendUserMessage
-// Re-expose/Refine appendUserMessage implementation
-window.appendUserMessageImpl = function (message) {
-    const chatArea = document.getElementById("receiverTextArea");
-    if (!chatArea) return;
+// Cursor tracking for prompt
+document.addEventListener('mousemove', (e) => {
+    const prompt = document.getElementById('cursorPrompt');
+    if (prompt) {
+        prompt.style.left = (e.clientX + 15) + 'px';
+        prompt.style.top = (e.clientY + 15) + 'px';
+    }
+});
 
-    // UI Update
-    const userBubble = document.createElement("div");
-    userBubble.className = "chat-bubble sender";
-    userBubble.innerHTML = `<div class='chat-message user-message'><b>You:</b><br>${message}</div>`;
-    chatArea.appendChild(userBubble);
-    chatArea.scrollTop = chatArea.scrollHeight;
+// Show cursor prompt on mic/send/attach buttons
+const hoverButtons = document.querySelectorAll('.glow-on-hover, #AttachBtn, #MicBtn, #SendBtn');
+hoverButtons.forEach(btn => {
+    btn.addEventListener('mouseenter', () => {
+        const prompt = document.getElementById('cursorPrompt');
+        if (!prompt) return;
+        prompt.classList.add('visible');
+        if (btn.id === 'MicBtn') {
+            prompt.textContent = 'Click to speak';
+        } else if (btn.id === 'SendBtn') {
+            prompt.textContent = 'Send message';
+        } else if (btn.id === 'AttachBtn') {
+            prompt.textContent = 'Attach file';
+        }
+    });
+    btn.addEventListener('mouseleave', () => {
+        const prompt = document.getElementById('cursorPrompt');
+        if (prompt) {
+            prompt.classList.remove('visible');
+            prompt.textContent = 'Type command...';
+        }
+    });
+});
 
-    // NEW: Trigger Sentiment Analysis
-    analyzeSentiment(message);
+// Text Animation
+if (typeof $ !== 'undefined' && $.fn.textillate) {
+    $('.input-display .content').textillate({
+        loop: true,
+        sync: true,
+        in: { effect: "fadeIn" },
+        out: { effect: "fadeOut" },
+    });
+
+    $('.siri-message').textillate({
+        loop: true,
+        sync: true,
+        in: { effect: "fadeInUp", sync: true },
+        out: { effect: "fadeOutUp", sync: true },
+    });
+}
+
+// SiriWave
+if (document.getElementById("SiriWave") && typeof SiriWave !== 'undefined') {
+    const siriContainer = document.getElementById("siri-container");
+    if (siriContainer) {
+        var siriWave = new SiriWave({
+            container: document.getElementById("SiriWave"),
+            width: siriContainer.clientWidth,
+            height: 200,
+            style: "ios9",
+            amplitude: 1,
+            speed: 0.30,
+            autostart: true
+        });
+        window.addEventListener("resize", () => {
+            siriWave.setWidth(siriContainer.clientWidth);
+        });
+    }
+}
+
+// Navigation Logic
+const safeRedirectTo = (url) => {
+    window.location.href = url;
 };
 
-// Override the previous function just in case
-appendUserMessage = window.appendUserMessageImpl;
+const goHomeLinkNavbar = document.getElementById('goHome');
+if (goHomeLinkNavbar) {
+    goHomeLinkNavbar.addEventListener('click', (e) => {
+        e.preventDefault();
+        safeRedirectTo('home.html');
+    });
+}
+
+const goHomeLinkArrow = document.getElementById('goHomeLink');
+if (goHomeLinkArrow) {
+    goHomeLinkArrow.addEventListener('click', (e) => {
+        e.preventDefault();
+        safeRedirectTo('home.html');
+    });
+}

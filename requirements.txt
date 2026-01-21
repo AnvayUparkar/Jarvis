@@ -12,6 +12,7 @@
 # SpeechRecognition
 # setuptools<81
 # pvporcupine
+msal==1.28.0
 # pyaudio
 
 

@@ -181,25 +181,27 @@
 
     #TextInput {
       position: fixed;
-      /* Fix the input bar at the bottom */
       bottom: 0;
       left: 0;
       width: 100%;
-      background-color: #000;
-      /* Dark background for the input bar */
-      padding: 10px 20px;
+      background: transparent;
+      padding: 0;
       display: flex;
-      align-items: center;
       justify-content: center;
-      box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.5);
-      /* Optional shadow */
       z-index: 1000;
-      /* Ensure it's on top */
+      pointer-events: none;
+      /* Let clicks pass through outside the input box */
+    }
+
+    #TextInput>* {
+      pointer-events: auto;
+      /* Re-enable clicks on the input box itself */
     }
 
     .feedback-widget {
       position: fixed;
-      bottom: 80px;
+      bottom: 120px;
+      /* Moved up to avoid overlap with taller input area */
       right: 20px;
       display: flex;
       flex-direction: column;
@@ -329,11 +331,12 @@
 
     /* Input field styling */
     #chatbox {
-      border-radius: 10px;
-      background-color: rgba(255, 255, 255, 0.1);
+      border-radius: 0;
+      /* Reset radius as it's inside container */
+      background-color: transparent;
       color: white;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      padding-left: 15px;
+      border: none;
+      padding-left: 0;
     }
 
     #chatbox::placeholder {
@@ -341,9 +344,9 @@
     }
 
     #chatbox:focus {
-      background-color: rgba(255, 255, 255, 0.15);
-      border-color: #0d6efd;
-      box-shadow: 0 0 0 0.25rem rgba(13, 110, 253, .25);
+      background-color: transparent;
+      border-color: transparent;
+      box-shadow: none;
     }
   </style>
 
@@ -507,19 +510,45 @@
         style="display: none; max-width: 90%; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.5);" />
     </div>
 
-    <!-- Input Section -->
-    <div id="TextInput">
-      <input type="text" class="form-control" id="chatbox" placeholder="Type a message..." />
-      <button id="SendBtn" class="glow-on-hover" type="button">
-        <i class="bi bi-send-fill"></i>
-      </button>
-      <button id="MicBtn" class="glow-on-hover" type="button">
-        <i class="bi bi-mic-fill"></i>
-      </button>
-      <input type="file" id="FileInput" style="display: none;" />
-      <button id="AttachBtn" class="glow-on-hover" type="button">
-        <i class="bi bi-paperclip"></i>
-      </button>
+    <!-- Unified Input Section -->
+    <div id="TextInput" class="d-flex justify-content-center w-100"
+      style="background: transparent; box-shadow: none; padding: 20px; position: fixed; bottom: 0; left: 0; z-index: 1000;">
+      <div class="input-group-container d-flex flex-column w-100"
+        style="max-width: 800px; background: rgba(30, 30, 30, 0.95); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; padding: 10px; transition: border-color 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
+
+        <!-- File Queue (Inside Input Container) -->
+        <div id="FileQueue" class="d-flex flex-wrap gap-2 px-2 pb-2" style="max-height: 100px; overflow-y: auto;">
+          <!-- Queued files injected here -->
+        </div>
+
+        <div class="d-flex align-items-end gap-2">
+          <!-- Attachment Button -->
+          <button id="AttachBtn" class="btn btn-link text-secondary p-0 ms-2 glow-on-hover"
+            style="font-size: 1.5rem; text-decoration: none; width: 40px; height: 40px;" type="button"
+            title="Attach files">
+            <i class="bi bi-paperclip"></i>
+          </button>
+          <input type="file" id="FileInput" style="display: none;" multiple />
+
+          <!-- Text Input -->
+          <textarea id="chatbox" class="form-control bg-transparent border-0 text-white shadow-none" rows="1"
+            placeholder="Message Jarvis..."
+            style="resize: none; overflow-y: hidden; max-height: 150px; padding: 10px; min-height: 44px;"></textarea>
+
+          <!-- Mic Button -->
+          <button id="MicBtn" class="btn btn-link text-secondary p-0 glow-on-hover"
+            style="font-size: 1.3rem; text-decoration: none; width: 40px; height: 40px;" type="button" title="Speak">
+            <i class="bi bi-mic-fill"></i>
+          </button>
+
+          <!-- Send Button -->
+          <button id="SendBtn"
+            class="btn btn-primary rounded-circle d-flex align-items-center justify-content-center p-0 ms-2 glow-on-hover"
+            style="width: 40px; height: 40px; min-width: 40px;" type="button" title="Send message">
+            <i class="bi bi-arrow-up-short" style="font-size: 1.5rem;"></i>
+          </button>
+        </div>
+      </div>
     </div>
 
     <!-- Feedback Widget -->
@@ -551,6 +580,7 @@
   <script type="text/javascript" src="/eel.js"></script>
   <script src="main.js"></script>
   <script src="controller.js"></script>
+  <script src="teams_ui.js"></script>
   <script src="script.js"></script>
   <script src="ironman3d.js"></script>
   <script src="facemesh.js"></script> <!-- Included FaceMesh Logic -->
@@ -611,159 +641,102 @@
           font-weight: bold;
           text-shadow: 0 0 5px #000;
       ">Neutral</div>
-  </div>
+    <!-- Teams Class Selection Modal -->
+    <div id="teams-class-modal" style="
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 10000;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+  ">
+      <div style="
+        background: #1a1a1a;
+        width: 500px;
+        max-width: 90%;
+        border: 1px solid #00ffff;
+        border-radius: 12px;
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    ">
+        <div style="padding: 20px; border-bottom: 1px solid #333; background: rgba(0, 255, 255, 0.05);">
+          <h3 style="margin: 0; color: #00ffff; font-family: 'Segoe UI', sans-serif;">Select Teams Class</h3>
+          <p style="margin: 5px 0 0 0; color: #aaa; font-size: 0.9rem;">Please choose the class you want to analyze.</p>
+        </div>
 
-  <script>
+        <div id="teams-class-list" style="
+          padding: 20px;
+          max-height: 300px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+      ">
+          <!-- Classes will be injected here -->
+        </div>
 
-    // Cursor tracking for prompt
-    document.addEventListener('mousemove', (e) => {
-      const prompt = document.getElementById('cursorPrompt');
-      prompt.style.left = (e.clientX + 15) + 'px';
-      prompt.style.top = (e.clientY + 15) + 'px';
-    });
+        <div style="padding: 20px; border-top: 1px solid #333; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onclick="closeTeamsModal('teams-class-modal')" style="
+            background: transparent; border: 1px solid #666; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+        ">Cancel</button>
+          <button id="teams-class-confirm-btn" disabled style="
+            background: #00ffff; border: none; color: #000; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: not-allowed; opacity: 0.5;
+        ">Confirm Selection</button>
+        </div>
+      </div>
+    </div>
 
-    // Show cursor prompt on mic/send/attach buttons
-    const buttons = document.querySelectorAll('.glow-on-hover');
-    buttons.forEach(btn => {
-      btn.addEventListener('mouseenter', () => {
-        const prompt = document.getElementById('cursorPrompt');
-        prompt.classList.add('visible');
-        if (btn.id === 'MicBtn') {
-          prompt.textContent = 'Click to speak';
-        } else if (btn.id === 'SendBtn') {
-          prompt.textContent = 'Send message';
-        } else if (btn.id === 'AttachBtn') {
-          prompt.textContent = 'Attach file';
-        }
-      });
-      btn.addEventListener('mouseleave', () => {
-        document.getElementById('cursorPrompt').classList.remove('visible');
-        document.getElementById('cursorPrompt').textContent = 'Type command...';
-      });
-    });
+    <!-- Teams Assignment Selection Modal -->
+    <div id="teams-assignment-modal" style="
+      display: none;
+      position: fixed;
+      top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.85);
+      z-index: 10001;
+      justify-content: center;
+      align-items: center;
+      backdrop-filter: blur(5px);
+  ">
+      <div style="
+        background: #1a1a1a;
+        width: 600px;
+        max-width: 90%;
+        border: 1px solid #00ffff;
+        border-radius: 12px;
+        box-shadow: 0 0 20px rgba(0, 255, 255, 0.2);
+        display: flex;
+        flex-direction: column;
+        overflow: hidden;
+    ">
+        <div style="padding: 20px; border-bottom: 1px solid #333; background: rgba(0, 255, 255, 0.05);">
+          <h3 style="margin: 0; color: #00ffff; font-family: 'Segoe UI', sans-serif;">Select Assignments</h3>
+          <p style="margin: 5px 0 0 0; color: #aaa; font-size: 0.9rem;">Select one or more assignments to grade.</p>
+        </div>
 
-    // Append user's message to chat
-    function appendUserMessage(message) {
-      const chatArea = document.getElementById("receiverTextArea");
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "text-end mb-2 chat-bubble sender"; /* Added chat-bubble sender class */
-      msgDiv.innerHTML = `<span class="bg-primary text-white p-2 rounded chat-message">${message}</span>`; /* Added chat-message class */
-      chatArea.appendChild(msgDiv);
-      chatArea.scrollTop = chatArea.scrollHeight;
-    }
+        <div id="teams-assignment-list" style="
+          padding: 20px;
+          max-height: 400px;
+          overflow-y: auto;
+          display: flex;
+          flex-direction: column;
+          gap: 10px;
+      ">
+          <!-- Assignments will be injected here -->
+        </div>
 
-    // Append Jarvis response to chat
-    function receiverText(message) {
-      const chatArea = document.getElementById("receiverTextArea");
-      const msgDiv = document.createElement("div");
-      msgDiv.className = "text-start mb-2 chat-bubble receiver"; /* Added chat-bubble receiver class */
-      msgDiv.innerHTML = `<span class="bg-secondary text-white p-2 rounded chat-message">${message}</span>`; /* Added chat-message class */
-      chatArea.appendChild(msgDiv);
-      chatArea.scrollTop = chatArea.scrollHeight;
-    }
-
-    // Send Message
-    document.getElementById("SendBtn").onclick = function () {
-      let message = document.getElementById("chatbox").value;
-      if (message.trim() === "") return;
-
-      appendUserMessage(message);               // show user's message
-      eel.handle_command_from_frontend(message)(); // send to backend
-      document.getElementById("chatbox").value = "";
-    };
-
-    // Mic Button
-    document.getElementById("MicBtn").onclick = function () {
-      if (typeof eel.listen_from_frontend === 'function') {
-        eel.listen_from_frontend();
-      } else {
-        console.warn("listen_from_frontend not found.");
-      }
-    };
-
-    // Enter key = send
-    document.getElementById("chatbox").addEventListener("keydown", function (event) {
-      if (event.key === "Enter") {
-        document.getElementById("SendBtn").click();
-      }
-    });
-
-    // Text Animation
-    $('.input-display .content').textillate({
-      loop: true,
-      sync: true,
-      in: { effect: "fadeIn" },
-      out: { effect: "fadeOut" },
-    });
-
-    $('.siri-message').textillate({
-      loop: true,
-      sync: true,
-      in: { effect: "fadeInUp", sync: true },
-      out: { effect: "fadeOutUp", sync: true },
-    });
-
-    // SiriWave
-    if (document.getElementById("SiriWave")) {
-      var siriWave = new SiriWave({
-        container: document.getElementById("SiriWave"),
-        width: document.getElementById("siri-container").clientWidth,
-        height: 200,
-        style: "ios9",
-        amplitude: 1,
-        speed: 0.30,
-        autostart: true
-      });
-      window.addEventListener("resize", () => {
-        siriWave.setWidth(document.getElementById("siri-container").clientWidth);
-      });
-    }
-
-    // File Attach
-    document.getElementById("AttachBtn").onclick = function () {
-      document.getElementById("FileInput").click();
-    };
-
-    document.getElementById("FileInput").onchange = function (event) {
-      const file = event.target.files[0];
-      if (file) {
-        const reader = new FileReader();
-        reader.onload = function (e) {
-          const base64Data = e.target.result;
-          eel.receive_file(file.name, base64Data);
-        };
-        reader.readAsDataURL(file);
-      }
-    };
-
-    // Expose to Eel
-    function stub(name) {
-      eel.expose(window[name] || (() => { }));
-    }
-
-    ["DisplayMessage", "ShowSiriWave", "HideSiriWave", "ShowLoader", "HideLoader",
-      "ShowTyping", "HideTyping", "VoicePreview", "receiverText", "senderText", "showImage", "hideImage"]
-      .forEach(stub);
-  </script>
+        <div style="padding: 20px; border-top: 1px solid #333; display: flex; justify-content: flex-end; gap: 10px;">
+          <button onclick="closeTeamsModal('teams-assignment-modal')" style="
+            background: transparent; border: 1px solid #666; color: #fff; padding: 8px 16px; border-radius: 6px; cursor: pointer;
+        ">Cancel</button>
+          <button id="teams-assignment-confirm-btn" disabled style="
+            background: #00ffff; border: none; color: #000; padding: 8px 16px; border-radius: 6px; font-weight: bold; cursor: not-allowed; opacity: 0.5;
+        ">Analyze Selected</button>
+        </div>
+      </div>
+    </div>
 </body>
-
 </html>
-xt", "showImage", "hideImage"]
-.forEach(stub);
-
-// --- Navigation Logic ---
-const goHomeLinkNavbar = document.getElementById('goHome');
-if (goHomeLinkNavbar) {
-goHomeLinkNavbar.addEventListener('click', (e) => {
-e.preventDefault();
-safeRedirectTo('home.html');
-});
-}
-
-const goHomeLinkArrow = document.getElementById('goHomeLink');
-if (goHomeLinkArrow) {
-goHomeLinkArrow.addEventListener('click', (e) => {
-e.preventDefault();
-safeRedirectTo('home.html');
-});
-}

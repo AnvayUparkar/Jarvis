@@ -7,6 +7,7 @@ import pygame
 import os
 import socket
 from flask import Flask, request, jsonify # Moved/Added import to top for global availability
+from flask_cors import CORS
 import asyncio
 import websockets
 import base64 # Added import for base64 decoding
@@ -101,7 +102,6 @@ class AvatarVideoController:
         except Exception as e:
             print(f"[AVATAR] Error setting video state: {e}")
 
-    # ... [Existing _execute functions] ...
 
     def set_emotion(self, emotion):
         emotion = emotion.lower().strip()
@@ -1437,6 +1437,7 @@ def receive_text_command(command):
 # This allows Jarvis to "remember" the file when "complete" command is given.
 # This allows Jarvis to "remember" the file when "complete" command is given.
 last_uploaded_file = {}
+last_uploaded_files = [] # Global list for multi-file attachments
 
 @eel.expose
 def upload_attachment(filename, base64_content, mime_type):
@@ -3350,6 +3351,63 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
     logging.info(f"Command received: {command}")
     eel.HideTyping()
 
+    # --- TEAMS INTEGRATION ---
+    if "analyze teams assignments" in command or "review teams assignments" in command:
+        speak("Initiating Teams assignment analysis.")
+        try:
+            # Lazy import
+            from services.selection_flow import get_selection_flow 
+            from services.teams_service import get_teams_service
+            from services.grading_engine import get_grading_engine
+
+            flow = get_selection_flow()
+            teams_service = get_teams_service()
+            grading_engine = get_grading_engine()
+            
+            # Step 1: Select Class
+            speak("Please select the Teams class you want to review.")
+            class_id = flow.select_class()
+            
+            if not class_id:
+                speak("No class selected. Cancelling analysis.")
+                return
+
+            # Step 2: Select Assignments
+            speak("Select one or more assignments to analyze.")
+            assignment_ids = flow.select_assignments(class_id)
+            
+            if not assignment_ids:
+                speak("No assignments selected. Cancelling analysis.")
+                return
+
+            speak(f"Selected {len(assignment_ids)} assignments. Starting analysis...")
+            
+            # Step 3: Analyze each assignment
+            for asn_id in assignment_ids:
+                # Fetch submissions
+                submissions = teams_service.get_submissions(class_id, asn_id)
+                assignments_meta = teams_service.get_assignments(class_id) # Optimization: Cache this earlier if possible
+                target_asn = next((a for a in assignments_meta if a['id'] == asn_id), {})
+                
+                speak(f"Analyzing {len(submissions)} submissions for assignment {target_asn.get('displayName', 'Unknown')}.")
+                
+                for sub in submissions:
+                    # Grade
+                    result = grading_engine.grade_submission(sub, target_asn)
+                    print(f"[Grading] Submission {sub['id']} -> Grade: {result['grade']}")
+                    
+                    # TODO: Post back to Teams (Phase 5)
+                    # teams_service.patch_submission(class_id, asn_id, sub['id'], result['grade'], result['feedback'])
+            
+            speak("Analysis and grading simulation complete. No grades have been posted yet.")
+            
+        except Exception as e:
+            speak("An error occurred during Teams analysis.")
+            print(f"Teams Error: {e}")
+            import traceback
+            traceback.print_exc()
+        return
+
     # --- Attendance Commands (NEW) ---
     if "store attendance" in command or "download attendance" in command or "update attendance" in command: # Added "update attendance"
         handle_attendance(command, input_text=source_input_text)
@@ -3973,7 +4031,12 @@ def handle_command_from_frontend(command):
             process_mcq_question(command)
     else:
         # Pass the command as source_input_text when it comes from the frontend
-        processCommand(command, source_input_text=command) 
+        # OFF-LOAD TO THREAD POOL to prevent blocking main Eel thread (critical for interactive flows like Teams)
+        if 'command_executor' in globals():
+             command_executor.submit(processCommand, command, source_input_text=command)
+        else:
+             # Fallback if executor not defined (though it should be)
+             threading.Thread(target=processCommand, args=(command,), kwargs={'source_input_text': command}, daemon=True).start()
 
     # If Jarvis was told to sleep, adjust UI and state
     if not jarvis_active:
@@ -4171,6 +4234,8 @@ def start(command_queue):
     # Start the Emotion Flask Service
     threading.Thread(target=run_emotion_flask, daemon=True).start()
 
+    # Start all background Flask services
+
     threading.Thread(target=hotword_listener_thread, args=(hotword_queue,), daemon=True).start()
 
     # Start eel with a custom close_callback to prevent app exit on window close
@@ -4234,7 +4299,6 @@ def receive_meeting_request():
 def run_peer_agent_listener():
     peer_agent_app.run(port=5001, debug=False)
 
-threading.Thread(target=run_peer_agent_listener, daemon=True).start()
 
 
 from file_completion import app as file_completion_flask_app
@@ -4278,6 +4342,76 @@ def run_lesson_planner_flask(): # NEW: Function to run the lesson_planner Flask 
 def run_attendance_flask(): # NEW: Function to run the attendance Flask app
     attendance_flask_app.run(port=5011, debug=False) # Run on port 5011
 
+multi_upload_app = Flask("multi_upload")
+CORS(multi_upload_app) # Enable CORS for multi-file uploads
+
+@multi_upload_app.route('/health', methods=['GET'])
+def health_check():
+    return jsonify({"status": "running", "service": "multi_upload", "port": 5014}), 200
+
+@multi_upload_app.route('/upload_multi', methods=['POST'])
+def upload_multi():
+    global last_uploaded_file, last_uploaded_files
+    try:
+        message = request.form.get('message')
+        files = request.files.getlist('files')
+        
+        saved_files = []
+        for file in files:
+            safe_filename = os.path.basename(file.filename)
+            unique_filename = f"{uuid.uuid4()}_{safe_filename}"
+            file_path = os.path.join(UPLOAD_FOLDER, unique_filename)
+            file.save(file_path)
+            
+            # Read file and encode to base64 for legacy command compatibility
+            with open(file_path, "rb") as f:
+                encoded_content = base64.b64encode(f.read()).decode('utf-8')
+
+            # For backward compatibility with existing command logic
+            file_info = {
+                "path": file_path,
+                "filename": safe_filename,
+                "mime_type": file.mimetype,
+                "base64_content": encoded_content # Critical for other services
+            }
+            saved_files.append(file_info)
+            last_uploaded_file = file_info # Set the most recent one as the "last" one
+
+        last_uploaded_files = saved_files
+        print(f"[MULTI-UPLOAD] Received {len(saved_files)} files.")
+
+        if message and message.strip():
+            print(f"[MULTI-UPLOAD] Processing message: {message}")
+            if 'command_executor' in globals():
+                command_executor.submit(processCommand, message, source_input_text=message)
+            else:
+                threading.Thread(target=processCommand, args=(message,), kwargs={'source_input_text': message}, daemon=True).start()
+            
+            return jsonify({
+                "status": "ok",
+                "files_received": len(saved_files),
+                "message_processed": True
+            })
+        else:
+            filenames_str = ", ".join([f["filename"] for f in saved_files])
+            speak(f"Received {filenames_str}. What should I do with them?")
+            return jsonify({
+                "status": "ok",
+                "files_received": len(saved_files),
+                "message_processed": False
+            })
+
+    except Exception as e:
+        print(f"[MULTI-UPLOAD] Error: {e}")
+        return jsonify({"status": "error", "message": str(e)}), 500
+
+def run_multi_upload_flask():
+    print("[MULTI-UPLOAD] Starting multi-upload Flask service on port 5014 (0.0.0.0)...")
+    try:
+        multi_upload_app.run(host='0.0.0.0', port=5014, debug=False, use_reloader=False)
+    except Exception as e:
+        print(f"[MULTI-UPLOAD] ❌ CRITICAL ERROR: Failed to start server: {e}")
+
 threading.Thread(target=run_file_completion_flask, daemon=True).start()
 threading.Thread(target=run_analyze_flask, daemon=True).start()
 threading.Thread(target=run_question_bot_flask, daemon=True).start()
@@ -4288,6 +4422,9 @@ threading.Thread(target=run_worksheet_flask, daemon=True).start() # Start the wo
 threading.Thread(target=run_marks_analysis_flask, daemon=True).start() # Start the marks_analysis Flask app
 threading.Thread(target=run_lesson_planner_flask, daemon=True).start() # NEW: Start the lesson_planner Flask app
 threading.Thread(target=run_attendance_flask, daemon=True).start() # NEW: Start the attendance Flask app
+threading.Thread(target=run_multi_upload_flask, daemon=True).start() # NEW: Start the multi-upload Flask app
+threading.Thread(target=run_peer_agent_listener, daemon=True).start()
+
 
 if __name__ == "__main__":
     print("Run `run.py` to start Jarvis with hotword detection.")
