@@ -16,6 +16,8 @@ ffprobe.exe
 ffplay.exe
 ffmpeg_extract/
 
+dummy_test.docx
+SAKEC_Case_Study_*.docx
 
 # Virtualenv
 envjarvis/

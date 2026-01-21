@@ -16,6 +16,8 @@ import queue
 from concurrent.futures import ThreadPoolExecutor
 from metrics import Watchdog # New resilience module
 import json # Added import for JSON decoding
+from io import BytesIO # NEW: Import BytesIO for in-memory file creation
+from docx import Document # NEW: Import Document for creating synthetic DOCX
 from gtts import gTTS # Corrected import for gTTS
 import google.generativeai as google_ai
 from google.oauth2.credentials import Credentials
@@ -1511,10 +1513,15 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         # NEW: SAKEC Scenario Assignment
         "create scenario assignment": {"url": "http://127.0.0.1:5015/generate-sakec-worksheet", "action": "sakec assignment generation"},
         "generate scenario assignment": {"url": "http://127.0.0.1:5015/generate-sakec-worksheet", "action": "sakec assignment generation"},
+        # NEW: SAKEC Case Study
+        "generate case study on": {"url": "http://127.0.0.1:5016/generate-sakec-case-study", "action": "sakec case study topic", "topic_extract": True}, # Specific pattern first
+        "generate case study": {"url": "http://127.0.0.1:5016/generate-sakec-case-study", "action": "sakec case study generation"},
+        "create case study": {"url": "http://127.0.0.1:5016/generate-sakec-case-study", "action": "sakec case study generation"},
     }
 
     selected_command_info = None
     target_level = None
+    extracted_topic = None # Helper for topic extraction
 
     # Iterate through patterns to find a match, prioritizing specific ones
     for pattern_str, info in command_patterns.items():
@@ -1524,6 +1531,12 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
                 selected_command_info = info
                 target_level = int(match.group(1))
                 break
+        elif info.get("topic_extract"): # Logic for topic extraction
+             if pattern_str in cmd:
+                 selected_command_info = info
+                 # Extract the part after "generate case study on"
+                 extracted_topic = cmd.split(pattern_str, 1)[1].strip()
+                 break
         elif pattern_str in cmd:
             selected_command_info = info
             break
@@ -1607,7 +1620,57 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         else:
             speak("I need a file to generate a scenario-based assignment. Please upload one first.")
             return
-    
+
+    elif action_type == "sakec case study generation": # NEW: SAKEC Case Study payload
+        if last_uploaded_file:
+            flask_url = selected_command_info["url"]
+            payload = {
+                "file_data": last_uploaded_file["base64_content"],
+                "filename": last_uploaded_file["filename"],
+                "mime_type": last_uploaded_file["mime_type"]
+            }
+        else:
+            speak("I need a file to generate a case study. Please upload one first.")
+            return
+
+    elif action_type == "sakec case study topic": # NEW: Topic-based generation
+        if extracted_topic:
+            speak(f"Generating a case study on {extracted_topic}. This might take a moment.")
+            flask_url = selected_command_info["url"]
+            
+            # Create a synthetic DOCX in memory
+            try:
+                doc = Document()
+                doc.add_heading(f"Topic: {extracted_topic}", 0)
+                doc.add_paragraph(f"Generate a comprehensive engineering case study centered around the topic: {extracted_topic}.")
+                doc.add_paragraph("Context: Industrial implementation and challenges.") # Adding some default context context
+                
+                # Save to BytesIO
+                file_stream = BytesIO()
+                doc.save(file_stream)
+                file_stream.seek(0)
+                
+                # Encode to base64
+                encoded_content = base64.b64encode(file_stream.read()).decode('utf-8')
+                
+                # Sanitize and truncate topic for filename (max 50 chars) to prevent [Errno 22] Invalid argument
+                safe_slug = "".join([c for c in extracted_topic if c.isalnum() or c in (' ', '-', '_')]).strip()
+                if len(safe_slug) > 50:
+                    safe_slug = safe_slug[:50]
+                
+                payload = {
+                    "file_data": encoded_content,
+                    "filename": f"Topic_{safe_slug}.docx",
+                    "mime_type": "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+                }
+            except Exception as e:
+                speak(f"Error creating topic document: {e}")
+                print(f"ERROR creating synthetic doc: {e}")
+                return
+        else:
+            speak("I didn't catch the topic for the case study. Please say 'generate case study on [topic]'.")
+            return
+
     elif action_type == "presentation generation":
         if result.get("presentation_url"):
             presentation_url = result["presentation_url"]
@@ -1688,7 +1751,7 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         response.raise_for_status() # This will raise an HTTPError for bad responses (4xx or 5xx)
 
         # --- MODIFIED: Check for JSON response containing file data for worksheet/lesson plan generation ---
-        if action_type == "worksheet generation" or "worksheet generation" in action_type or action_type == "lesson plan generation" or action_type == "sakec assignment generation": # Added SAKEC
+        if action_type == "worksheet generation" or "worksheet generation" in action_type or action_type == "lesson plan generation" or action_type == "sakec assignment generation" or "sakec case study" in action_type: # Updated check for topic command
             result = response.json()
             # Check for 'completed_filename' and 'completed_file_data' (from file_completion.py)
             # OR 'lesson_plan_filename' and 'lesson_plan_data' (from lesson_planner.py)
@@ -3456,6 +3519,12 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
             speak("Please upload a file first, then say 'create scenario assignment'.")
         return
 
+
+    # --- NEW: SAKEC Case Study Command ---
+    if "generate case study" in command or "create case study" in command: # Handles both "on <topic>" and file-based
+        handle_file_command(command, input_text=source_input_text)
+        return
+
     # --- Other File-related Commands ---
     if "generate presentation from file" in command:
         handle_file_command(command, input_text=source_input_text) # Pass source_input_text
@@ -4335,6 +4404,7 @@ from marks_analysis import app as marks_analysis_flask_app # Import the Flask ap
 from lesson_planner import app as lesson_planner_flask_app # NEW: Import the Flask app from lesson_planner.py
 from attendance import app as attendance_flask_app # NEW: Import the Flask app from attendance.py
 from sakec_worksheet import app as sakec_worksheet_flask_app # NEW: Import SAKEC Worksheet app
+from sakec_case_study import app as sakec_case_study_flask_app # NEW: Import SAKEC Case Study app
 
 def run_file_completion_flask():
     file_completion_flask_app.run(port=5002, debug=False)
@@ -4368,6 +4438,9 @@ def run_attendance_flask(): # NEW: Function to run the attendance Flask app
 
 def run_sakec_worksheet_flask(): # NEW: Function to run SAKEC worksheet app
     sakec_worksheet_flask_app.run(port=5015, debug=False)
+
+def run_sakec_case_study_flask(): # NEW: Function to run SAKEC case study app
+    sakec_case_study_flask_app.run(port=5016, debug=False)
 
 multi_upload_app = Flask("multi_upload")
 CORS(multi_upload_app) # Enable CORS for multi-file uploads
@@ -4451,6 +4524,7 @@ threading.Thread(target=run_lesson_planner_flask, daemon=True).start() # NEW: St
 threading.Thread(target=run_attendance_flask, daemon=True).start() # NEW: Start the attendance Flask app
 threading.Thread(target=run_multi_upload_flask, daemon=True).start() # NEW: Start the multi-upload Flask app
 threading.Thread(target=run_sakec_worksheet_flask, daemon=True).start() # NEW: Start SAKEC service
+threading.Thread(target=run_sakec_case_study_flask, daemon=True).start() # NEW: Start SAKEC Case Study Service
 threading.Thread(target=run_peer_agent_listener, daemon=True).start()
 
 
