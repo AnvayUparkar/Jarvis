@@ -1508,6 +1508,9 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         # NEW: Lesson Plan command
         "plan lesson": {"url": "http://127.0.0.1:5010/plan-lesson", "action": "lesson plan generation"},
         "generate lesson plan": {"url": "http://127.0.0.1:5010/plan-lesson", "action": "lesson plan generation"},
+        # NEW: SAKEC Scenario Assignment
+        "create scenario assignment": {"url": "http://127.0.0.1:5015/generate-sakec-worksheet", "action": "sakec assignment generation"},
+        "generate scenario assignment": {"url": "http://127.0.0.1:5015/generate-sakec-worksheet", "action": "sakec assignment generation"},
     }
 
     selected_command_info = None
@@ -1592,6 +1595,18 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         else:
             speak(f"I don't have a file to process for '{action_type}' right now. Please upload one.")
             return
+
+    elif action_type == "sakec assignment generation": # NEW: SAKEC payload
+        if last_uploaded_file:
+            flask_url = selected_command_info["url"]
+            payload = {
+                "file_data": last_uploaded_file["base64_content"],
+                "filename": last_uploaded_file["filename"],
+                "mime_type": last_uploaded_file["mime_type"]
+            }
+        else:
+            speak("I need a file to generate a scenario-based assignment. Please upload one first.")
+            return
     
     elif action_type == "presentation generation":
         if result.get("presentation_url"):
@@ -1673,7 +1688,7 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
         response.raise_for_status() # This will raise an HTTPError for bad responses (4xx or 5xx)
 
         # --- MODIFIED: Check for JSON response containing file data for worksheet/lesson plan generation ---
-        if action_type == "worksheet generation" or "worksheet generation" in action_type or action_type == "lesson plan generation": # Added lesson plan
+        if action_type == "worksheet generation" or "worksheet generation" in action_type or action_type == "lesson plan generation" or action_type == "sakec assignment generation": # Added SAKEC
             result = response.json()
             # Check for 'completed_filename' and 'completed_file_data' (from file_completion.py)
             # OR 'lesson_plan_filename' and 'lesson_plan_data' (from lesson_planner.py)
@@ -3433,6 +3448,14 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
             speak("Please upload a file first using the GUI, then say 'plan lesson' or 'generate lesson plan'.")
         return
 
+    # --- NEW: SAKEC Scenario Assignment Command ---
+    if "create scenario assignment" in command or "generate scenario assignment" in command:
+        if last_uploaded_file:
+            handle_file_command(command, input_text=source_input_text)
+        else:
+            speak("Please upload a file first, then say 'create scenario assignment'.")
+        return
+
     # --- Other File-related Commands ---
     if "generate presentation from file" in command:
         handle_file_command(command, input_text=source_input_text) # Pass source_input_text
@@ -4311,6 +4334,7 @@ from worksheet import app as worksheet_flask_app # Import the Flask app from wor
 from marks_analysis import app as marks_analysis_flask_app # Import the Flask app from marks_analysis.py
 from lesson_planner import app as lesson_planner_flask_app # NEW: Import the Flask app from lesson_planner.py
 from attendance import app as attendance_flask_app # NEW: Import the Flask app from attendance.py
+from sakec_worksheet import app as sakec_worksheet_flask_app # NEW: Import SAKEC Worksheet app
 
 def run_file_completion_flask():
     file_completion_flask_app.run(port=5002, debug=False)
@@ -4341,6 +4365,9 @@ def run_lesson_planner_flask(): # NEW: Function to run the lesson_planner Flask 
 
 def run_attendance_flask(): # NEW: Function to run the attendance Flask app
     attendance_flask_app.run(port=5011, debug=False) # Run on port 5011
+
+def run_sakec_worksheet_flask(): # NEW: Function to run SAKEC worksheet app
+    sakec_worksheet_flask_app.run(port=5015, debug=False)
 
 multi_upload_app = Flask("multi_upload")
 CORS(multi_upload_app) # Enable CORS for multi-file uploads
@@ -4423,6 +4450,7 @@ threading.Thread(target=run_marks_analysis_flask, daemon=True).start() # Start t
 threading.Thread(target=run_lesson_planner_flask, daemon=True).start() # NEW: Start the lesson_planner Flask app
 threading.Thread(target=run_attendance_flask, daemon=True).start() # NEW: Start the attendance Flask app
 threading.Thread(target=run_multi_upload_flask, daemon=True).start() # NEW: Start the multi-upload Flask app
+threading.Thread(target=run_sakec_worksheet_flask, daemon=True).start() # NEW: Start SAKEC service
 threading.Thread(target=run_peer_agent_listener, daemon=True).start()
 
 
