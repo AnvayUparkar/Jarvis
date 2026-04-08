@@ -49,8 +49,11 @@ The system is designed to reduce repetitive effort by automating common digital 
 
 ### AI and APIs
 - Gemini AI API
-- Google APIs
+- Google Forms APIs
 - Google Slides API
+- Google Mail API
+- Pollination Image Generation API
+- Google Sheets API 
 
 ### Integrations and Functional Modules
 - Voice Recognition / Speech Processing
