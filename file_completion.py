@@ -13,6 +13,9 @@ from werkzeug.utils import secure_filename
 import json
 import base64 # Import base64
 from apikey import GEN_AI_API_KEY  # Ensure you have your API key set up in apikeys.py
+from gemini_fallback import enable_gemini_fallback
+
+enable_gemini_fallback()
 
 app = Flask(__name__)
 CORS(app)
@@ -24,7 +27,7 @@ os.makedirs(COMPLETED_FOLDER, exist_ok=True)
 
 # Replace with your actual API key
 genai.configure(api_key=GEN_AI_API_KEY)
-model = genai.GenerativeModel("gemini-1.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 def extract_text_from_docx(file_path):
     doc = Document(file_path)

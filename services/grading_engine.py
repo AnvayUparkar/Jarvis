@@ -104,7 +104,7 @@ class GradingEngine:
         """
         
         try:
-            model = genai.GenerativeModel("gemini-2.5-flash") # or config default
+            model = genai.GenerativeModel("gemini-2.5-flash-lite") # or config default
             response = model.generate_content(prompt)
             
             text = response.text.replace('```json', '').replace('```', '').strip()

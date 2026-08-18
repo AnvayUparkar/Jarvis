@@ -89,7 +89,7 @@ def hotword(command_queue):
             input_device_index=None  # Use default input device
         )
         
-        print(f"[🎙️ HOTWORD] Audio stream opened, beginning continuous listening for wake word 'Hello Mirage'...")
+        print(f"[🎙️ HOTWORD] Audio stream opened, beginning continuous listening for wake word 'Jarvis'...")
         print(f"[⏱️ HOTWORD] Cooldown period: {COOLDOWN_SECONDS} seconds after detection")
         
         # Main listening loop
@@ -110,7 +110,7 @@ def hotword(command_queue):
                     
                     # Apply cooldown to prevent false retriggers
                     if current_time - last_activation_time >= COOLDOWN_SECONDS:
-                        print(f"\n[🔊 HOTWORD] ✨ Wake word 'Hello Mirage' DETECTED! Activating...")
+                        print(f"\n[🔊 HOTWORD] ✨ Wake word 'Jarvis' DETECTED! Activating...")
                         
                         # Send activation signal to main process via queue
                         try:
@@ -146,9 +146,63 @@ def hotword(command_queue):
         sys.exit(1)
         
     except Exception as e:
-        print(f"[❌ HOTWORD] Fatal error in hotword detection: {e}")
+        print(f"[⚠️ HOTWORD] Porcupine initialization failed or crashed: {e}")
         print(f"[📋 HOTWORD] Error type: {type(e).__name__}")
-        sys.exit(1)
+        print("[🔄 HOTWORD] Attempting to start fallback hotword detection...")
+        try:
+            import speech_recognition as sr
+            import audio_engine
+            
+            print("[🎙️ HOTWORD] Falling back to audio_engine.py...")
+            recognizer = audio_engine.get_tuned_recognizer()
+            # We want it to be responsive but not cut off "Jarvis" mid-word
+            recognizer.pause_threshold = 0.8
+            recognizer.non_speaking_duration = 0.3
+            mic = sr.Microphone(sample_rate=16000)
+            
+            triggers = ["jarvis", "hello mirage", "hey mirage", "hi mirage", "mirage", "jar", "javis", "garvis"]
+            
+            last_activation_time = 0
+            
+            with mic as source:
+                print("[🎙️ HOTWORD] Initial calibration...")
+                recognizer.adjust_for_ambient_noise(source, duration=1.0)
+                print("[🎙️ HOTWORD] Speech fallback listening for 'Jarvis'...")
+                
+                while True:
+                    try:
+                        # Use smart_listen for normalization and safety, skip calibration to prevent 1-second gaps
+                        audio = audio_engine.smart_listen(recognizer, source, timeout=1.0, phrase_time_limit=3.0, calibrate=False, quiet=True)
+                        
+                        text = recognizer.recognize_google(audio).lower()
+                        if text:
+                            print(f"[🎙️ HOTWORD] Heard: {text}")
+                        
+                        if any(trigger in text for trigger in triggers):
+                            current_time = time.time()
+                            if current_time - last_activation_time >= COOLDOWN_SECONDS:
+                                print(f"\n[🔊 HOTWORD] ✨ Wake word DETECTED (Fallback: '{text}')! Activating...")
+                                try:
+                                    command_queue.put("activate_mirage", timeout=1)
+                                    print(f"[📤 HOTWORD] Activation signal sent to main process")
+                                except queue.Full:
+                                    print(f"[⚠️ HOTWORD] Queue is full, activation signal not sent")
+                                last_activation_time = current_time
+                                time.sleep(0.5)
+                    except sr.UnknownValueError:
+                        pass
+                    except sr.RequestError:
+                        print("[⚠️ HOTWORD] Network error in fallback. Retrying...")
+                        time.sleep(1)
+                    except sr.WaitTimeoutError:
+                        continue
+                    except Exception as ex:
+                        print(f"[⚠️ HOTWORD] Fallback error: {ex}")
+                        time.sleep(1)
+
+        except ImportError:
+            print("[❌ HOTWORD] SpeechRecognition module not found for fallback. Please run: pip install SpeechRecognition")
+            sys.exit(1)
         
     finally:
         # Cleanup resources

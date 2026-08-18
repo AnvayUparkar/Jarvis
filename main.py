@@ -20,7 +20,10 @@ from io import BytesIO # NEW: Import BytesIO for in-memory file creation
 from docx import Document # NEW: Import Document for creating synthetic DOCX
 from gtts import gTTS # Corrected import for gTTS
 import google.generativeai as google_ai
+import gemini_fallback
+gemini_fallback.enable_gemini_fallback()
 from google.oauth2.credentials import Credentials
+from google_auth_helpers import get_google_credentials, get_current_user_email, GOOGLE_TOKEN_FILE, GOOGLE_CALENDAR_TOKEN_FILE, SCOPES, GOOGLE_CREDENTIALS_FILE
 from googleapiclient.discovery import build
 from google.auth.transport.requests import Request
 import subprocess
@@ -45,6 +48,8 @@ from shutdown_and_restart import *
 from image import * # Ensure this import is active for generate_image_for_jarvis
 from token_store import *
 from answer_bot import answer_mcq_question # Import the answer_bot function
+import auth # Import auth to expose Eel endpoints
+
 # === Wav2Lip Lip-Sync Service (Performance Optimized) ===
 try:
     from wav2lip_service import generate_lipsync_video, check_wav2lip_setup, initialize_at_startup
@@ -298,7 +303,7 @@ except ImportError:
 
 
 # Using a single credentials file for all Google APIs for consistency
-GOOGLE_CREDENTIALS_FILE = 'client_secret_133871116699-cn0a6i1lja1n9gkos0f3kr6sia0jej55.apps.googleusercontent.com.json' # Using credentialsnew.json as the primary
+GOOGLE_CREDENTIALS_FILE = 'client_secret_798986409322-mhuifnus25qs6clsoejlhdsah7f4o6hl.apps.googleusercontent.com.json' # Using credentialsnew.json as the primary
 GOOGLE_TOKEN_FILE = 'token.json' # Active configuration for storing token
 GOOGLE_CALENDAR_TOKEN_FILE = 'calendar_token.json' # Separate token for calendar if needed, or unify
 
@@ -327,74 +332,6 @@ except Exception as e:
     print(f"❌ Error configuring Gemini API: {e}. Please check your GEN_AI_API_KEY.")
 
 
-# --- Google API Authentication (Unified) ---
-def get_google_credentials():
-    """
-    Handles Google OAuth2.0 authentication for all Google APIs used by Jarvis.
-    Attempts to load existing credentials from token.json or performs a new
-    authorization flow if needed. Ensures all required SCOPES are covered.
-    """
-    creds = None
-    # The file token.json stores the user's access and refresh tokens, and is
-    # created automatically when the authorization flow completes for the first time.
-    if os.path.exists(GOOGLE_TOKEN_FILE):
-        print("Attempting to load Google credentials from token.json...")
-        try:
-            creds = Credentials.from_authorized_user_file(GOOGLE_TOKEN_FILE, SCOPES)
-            print("✅ Google credentials loaded from token.json.")
-
-            # IMPORTANT: Check if all *currently required* SCOPES are covered by the loaded credentials
-            # This is crucial if you add new scopes later.
-            if not all(s in creds.scopes for s in SCOPES):
-                print("⚠️ Loaded credentials do not cover all required scopes. Forcing re-authentication.")
-                creds = None # Force a new authentication flow
-            
-        except Exception as e:
-            print(f"❌ Error loading credentials from token.json: {e}. Re-authenticating.")
-            creds = None
-
-    # If there are no (valid) credentials available, let the user log in.
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            print("Google credentials expired, attempting to refresh...")
-            try:
-                from google_auth_oauthlib.flow import InstalledAppFlow # Moved import here
-                creds.refresh(Request())
-                print("✅ Google credentials refreshed successfully.")
-                # After refresh, re-check scopes, just in case refresh didn't update them all (rare but possible)
-                if not all(s in creds.scopes for s in SCOPES):
-                    print("⚠️ Refreshed credentials still do not cover all required scopes. Initiating new authentication flow.")
-                    creds = None
-            except Exception as e:
-                print(f"❌ Error refreshing credentials: {e}. Initiating new authentication flow.")
-                creds = None
-        
-        if not creds: # If still no valid creds after load/refresh, initiate new flow
-            print("Initiating new Google authentication flow...")
-            try:
-                from google_auth_oauthlib.flow import InstalledAppFlow # Moved import here
-                flow = InstalledAppFlow.from_client_secrets_file(GOOGLE_CREDENTIALS_FILE, SCOPES)
-                creds = flow.run_local_server(port=0) # run_local_server handles opening browser and receiving redirect
-                print("✅ Google authentication completed.")
-            except Exception as e:
-                print(f"❌ Error during Google authentication flow: {e}. Ensure '{GOOGLE_CREDENTIALS_FILE}' is valid and present.")
-                return None
-            
-            # Save the credentials for the next run
-            try:
-                with open(GOOGLE_TOKEN_FILE, 'w') as token:
-                    token.write(creds.to_json())
-                print("✅ Google credentials saved to token.json.")
-            except Exception as e:
-                print(f"❌ Error saving credentials to token.py: {e}")
-                
-    # NEW DEBUG PRINT: Print the scopes that are actually loaded
-    if creds:
-        print(f"DEBUG: Scopes currently loaded in credentials: {sorted(list(creds.scopes))}")
-    else:
-        print("DEBUG: No credentials loaded.")
-
-    return creds
 
 # --- Gemini Function to Get Slide Content ---
 # This function is now primarily handled by the presentation.py Flask app.
@@ -425,7 +362,7 @@ def get_slide_content(topic, speak):
     print(f"🧠 Asking Gemini for content and theme on: {topic}")
     speak(f"Thinking about content and visual style for {topic}...")
     try:
-        model = google_ai.GenerativeModel("gemini-2.5-flash") 
+        model = google_ai.GenerativeModel("gemini-2.5-flash-lite") 
         response = model.generate_content(prompt)
         json_string = response.text.strip()
         
@@ -730,6 +667,7 @@ def authenticate_google_slides(speak):
 
 # Add the parent directory to sys.path for module resolution
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import audio_engine
 
 
 # The following imports related to 'jarvis_ai' were causing issues as they are not standard libraries
@@ -816,15 +754,6 @@ def get_email_from_name(name_to_search):
         print(f"An unexpected error occurred while fetching contact email: {e}")
         return None
 
-# --- NEW FUNCTION: get_current_user_email ---
-def get_current_user_email():
-    """
-    Retrieves the primary email address of the currently authenticated Google user.
-    """
-    creds = get_google_credentials() # Use the unified credential function
-    if not creds:
-        print("Failed to authenticate with Google. Cannot retrieve current user email.")
-        return None
 
     try:
         service = build('people', 'v1', credentials=creds)
@@ -1082,40 +1011,14 @@ def listen():
     if SLEEP_MODE:
         return ""
     
-    r = sr.Recognizer()
+    r = audio_engine.get_tuned_recognizer()
     with sr.Microphone(sample_rate=16000) as source:
         print("🎙️ Say your command...")
-        # Display a message to the frontend indicating listening state
         eel.DisplayMessage("Listening...")
-        # Show a typing indicator/Siri wave on the frontend
         eel.ShowTyping()
 
-        # Adjust for ambient noise for a slightly longer duration for better accuracy
-        # This helps the recognizer determine the noise level of the environment
-        r.adjust_for_ambient_noise(source)
-
-        # Lower the energy threshold: This makes the microphone more sensitive
-        # It's a balance: too low and it picks up background noise, too high and it misses quiet speech.
-        # Experiment with values like 50, 100, 150, 200 based on your microphone and environment.
-        r.energy_threshold = 85 # Slightly lower than 150 for potentially quieter voices
-
-        # Set the pause threshold: This is the maximum length of a pause (in seconds)
-        # that will be tolerated before the phrase is considered complete.
-        # A shorter pause_threshold means it cuts off speech faster after a silence.
-        # A longer one allows for more natural pauses in speech but can delay recognition.
-        r.pause_threshold = 2.0 # Increased to allow more listening time after hotword detection
-        
-        # Set an operation timeout: If no speech is detected within this time,
-        # a sr.WaitTimeoutError is raised. This prevents the listener from hanging indefinitely.
-        r.operation_timeout = 15 # Increased timeout to 15 seconds for longer listening
-        # This timeout is crucial for parallel input perception. If the user
-        # pauses for too long after a prompt, the voice input might time out
-        # before they speak, making it seem unresponsive.
-
         try:
-            # Listen for audio from the source within the operation_timeout limit
-            print("Microphone adjusted, listening now...")
-            audio = r.listen(source, timeout=r.operation_timeout) 
+            audio = audio_engine.smart_listen(r, source, timeout=15, phrase_time_limit=15)
         except sr.WaitTimeoutError:
             # If no speech is detected within the timeout, hide typing and return empty string
             eel.HideTyping()
@@ -1136,7 +1039,7 @@ def listen():
         
         # Enforce strict socket timeout for recognition to prevent hangs
         original_timeout = socket.getdefaulttimeout()
-        socket.setdefaulttimeout(10)
+        socket.setdefaulttimeout(45) # Increased from 10 to 45 to allow long sentences to process
         try:
             command = r.recognize_google(audio, language='en-IN')
         finally:
@@ -1189,20 +1092,15 @@ def listen_for_response(dynamic_pause_threshold=1.2): # Default reduced pause th
     if SLEEP_MODE:
         return ""
     
-    r = sr.Recognizer()
+    r = audio_engine.get_tuned_recognizer()
+    r.pause_threshold = dynamic_pause_threshold
     with sr.Microphone(sample_rate=16000) as source:
         print("🎙️ Awaiting your response...")
         eel.DisplayMessage("Listening for your response...")
         eel.ShowTyping()
 
-        r.adjust_for_ambient_noise(source) # Slightly shorter ambient noise adjustment for responses
-        r.energy_threshold = 80 # Potentially even lower for responses which might be softer
-        r.pause_threshold = dynamic_pause_threshold # Use the dynamic threshold
-        r.operation_timeout = 30 # Increased timeout for responses
-
         try:
-            print("Microphone adjusted for response, listening now...")
-            audio = r.listen(source, timeout=r.operation_timeout)
+            audio = audio_engine.smart_listen(r, source, timeout=30, phrase_time_limit=15)
         except sr.WaitTimeoutError:
             eel.HideTyping()
             print("⏱️ Response timed out: No speech detected.")
@@ -1248,20 +1146,15 @@ def listen_for_response_answer(dynamic_pause_threshold=1.2): # Default reduced p
     if SLEEP_MODE:
         return ""
     
-    r = sr.Recognizer()
+    r = audio_engine.get_tuned_recognizer()
+    r.pause_threshold = dynamic_pause_threshold
     with sr.Microphone(sample_rate=16000) as source:
         print("🎙️ Awaiting your response...")
         eel.DisplayMessage("Listening for your response...")
         eel.ShowTyping()
 
-        r.adjust_for_ambient_noise(source) # Slightly shorter ambient noise adjustment for responses
-        r.energy_threshold = 85 # Potentially even lower for responses which might be softer
-        r.pause_threshold = dynamic_pause_threshold # Use the dynamic threshold
-        r.operation_timeout = 50 # Increased timeout for responses
-
         try:
-            print("Microphone adjusted for response, listening now...")
-            audio = r.listen(source, timeout=r.operation_timeout)
+            audio = audio_engine.smart_listen(r, source, timeout=50, phrase_time_limit=15)
         except sr.WaitTimeoutError:
             eel.HideTyping()
             print("⏱️ Response timed out: No speech detected.")
@@ -1672,14 +1565,16 @@ def handle_file_command(command, input_text=None, language="English"): # Added l
             return
 
     elif action_type == "presentation generation":
-        if result.get("presentation_url"):
-            presentation_url = result["presentation_url"]
-            # Check if theme was returned by Flask
-            theme_used = result.get("theme_used", "Standard") 
-            speak(f"Google Slides presentation generated with {theme_used} theme. Opening it now.")
-            webbrowser.open(presentation_url)
+        if last_uploaded_file:
+            flask_url = selected_command_info["url"]
+            payload = {
+                "file_data": last_uploaded_file["base64_content"],
+                "filename": last_uploaded_file["filename"],
+                "mime_type": last_uploaded_file["mime_type"]
+            }
         else:
-            speak(f"File {action_type} failed. No presentation URL received.")
+            speak(f"I don't have a file to process for '{action_type}' right now. Please upload one.")
+            return
     
     elif action_type == "problem solving":
         if last_uploaded_file:
@@ -2085,7 +1980,7 @@ def fetch_next_news():
         speak("Please say 'news' first to fetch the latest headlines.")
 
 def aiProcess(command):
-    model = google_ai.GenerativeModel('gemini-2.5-flash')
+    model = google_ai.GenerativeModel('gemini-2.5-flash-lite')
     response = model.generate_content(
         f"You are a virtual assistant named Jarvis skilled in general tasks like Alexa and Google Cloud.\n{command}")
     return response.text
@@ -2574,7 +2469,7 @@ def create_calendar_event(service, event_details: dict):
 def get_gemini_model_for_scheduling():
     """Initializes and returns the Gemini Pro model for scheduling tasks."""
     try:
-        model = google_ai.GenerativeModel("gemini-2.5-flash") # Using gemini-2.5-flash for potentially better performance
+        model = google_ai.GenerativeModel("gemini-2.5-flash-lite") # Using gemini-2.5-flash-lite for potentially better performance
         return model
     except Exception as e:
         print_message(f"Failed to load Gemini model for scheduling: {e}", "error")
@@ -2888,7 +2783,7 @@ def handle_scheduling_command(command, speak):
 
     gemini_model = None
     try:
-        gemini_model = google_ai.GenerativeModel("gemini-2.5-flash") # Use the scheduling-specific Gemini model getter
+        gemini_model = google_ai.GenerativeModel("gemini-2.5-flash-lite") # Use the scheduling-specific Gemini model getter
         print_message("Gemini model initialized for scheduling.", "success")
     except Exception as e:
         speak(f"Failed to load Gemini model for scheduling: {e}", "error")
@@ -3592,7 +3487,7 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
 
         speak("Generating questions for the form using AI. This might take a moment.")
         try:
-            gemini_model = google_ai.GenerativeModel("gemini-2.5-flash")
+            gemini_model = google_ai.GenerativeModel("gemini-2.5-flash-lite")
             question_prompt = f"""
             Generate 5-7 diverse questions for a Google Form about \"{form_topic}\".
             For each question, specify its type (e.g., 'TEXT', 'PARAGRAPH_TEXT', 'MULTIPLE_CHOICE', 'CHECKBOX', 'DROPDOWN').
@@ -4113,7 +4008,10 @@ def handle_command_from_frontend(command):
     # For text commands, we assume Jarvis is active and process them.
     # We don't want to start a *new* listening loop if one is already running
     # but we ensure the command is processed.
-    eel.DisplayMessage(f"You: {command}")
+    
+    # REMOVED: eel.DisplayMessage(f"You: {command}")
+    # The frontend already renders the user message via appendUserMessage()
+    # Backend should NEVER echo user messages to prevent duplicates
     
     if in_mcq_answer_mode:
         if command.lower().strip() == "end answer":

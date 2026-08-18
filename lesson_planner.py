@@ -46,7 +46,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(PLANS_FOLDER, exist_ok=True)
 
 genai.configure(api_key=GEN_AI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash")
+model = genai.GenerativeModel("gemini-2.5-flash-lite")
 
 def extract_text_from_docx(file_path):
     """Extracts text from a DOCX file."""

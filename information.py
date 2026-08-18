@@ -59,7 +59,7 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 if GEN_AI_API_KEY:
     try:
         genai.configure(api_key=GEN_AI_API_KEY)
-        model = genai.GenerativeModel("gemini-2.5-flash")
+        model = genai.GenerativeModel("gemini-2.5-flash-lite")
     except Exception as e:
         print(f"CRITICAL ERROR: Failed to configure Gemini API with provided key: {e}")
         model = None # Set model to None if configuration fails

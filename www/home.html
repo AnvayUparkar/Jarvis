@@ -11,6 +11,7 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <link rel="stylesheet" href="login.css">
 
   <style>
     * {
@@ -647,383 +648,64 @@
       transform: rotate(90deg);
     }
 
-    /* Poppins font import for login modal */
-    @import url('https://fonts.googleapis.com/css2?family=Poppins:ital,wght@0,100;0,200;0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,100;1,200;1,300;1,400;1,500;1,600;1,700;1,800;1,900&display=swap');
 
-    /* Auth Wrapper Styling */
-    .login-modal .auth-wrapper {
-      position: relative;
-      width: 100%;
-      max-width: 800px;
-      height: 500px;
-      border: 2px solid #00d4ff;
-      box-shadow: 0 0 25px #00d4ff;
+
+    .user-avatar-container {
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
       overflow: hidden;
+      border: 2px solid var(--accent);
+      transition: all 0.3s ease;
     }
 
-    .login-modal .auth-wrapper .credentials-panel {
-      position: absolute;
-      top: 0;
-      width: 50%;
+    .user-avatar-container:hover {
+      box-shadow: 0 0 10px var(--accent);
+    }
+
+    .user-avatar-icon {
+      font-size: 1.2rem;
+      color: var(--text);
+    }
+
+    .user-avatar-img {
+      width: 100%;
       height: 100%;
+      object-fit: cover;
+    }
+
+    .avatar-presets {
       display: flex;
       justify-content: center;
-      flex-direction: column;
-    }
-
-    .login-modal .credentials-panel.signin {
-      left: 0;
-      padding: 0 40px;
-    }
-
-    .login-modal .credentials-panel.signin .slide-element {
-      transform: translateX(0%);
-      transition: .7s;
-      opacity: 1;
-    }
-
-    .login-modal .auth-wrapper.toggled .credentials-panel.signin .slide-element {
-      transform: translateX(-120%);
-      opacity: 0;
-    }
-
-    .login-modal .credentials-panel.signup {
-      right: 0;
-      padding: 0 60px;
-    }
-
-    .login-modal .credentials-panel.signup .slide-element {
-      transform: translateX(120%);
-      transition: .7s ease;
-      opacity: 0;
-      filter: blur(10px);
-    }
-
-    .login-modal .auth-wrapper.toggled .credentials-panel.signup .slide-element {
-      transform: translateX(0%);
-      opacity: 1;
-      filter: blur(0px);
-    }
-
-    .login-modal .credentials-panel h2 {
-      font-size: 32px;
-      text-align: center;
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .credentials-panel .field-wrapper {
-      position: relative;
-      width: 100%;
-      height: 50px;
-      margin-top: 25px;
-    }
-
-    .login-modal .field-wrapper input {
-      width: 100%;
-      height: 100%;
-      background: transparent;
-      border: none;
-      outline: none;
-      font-size: 16px;
-      color: #fff;
-      font-weight: 600;
-      border-bottom: 2px solid #fff;
-      padding-right: 23px;
-      transition: .5s;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .field-wrapper input:focus,
-    .login-modal .field-wrapper input:valid {
-      border-bottom: 2px solid #00d4ff;
-    }
-
-    .login-modal .field-wrapper label {
-      position: absolute;
-      top: 50%;
-      left: 0;
-      transform: translateY(-50%);
-      font-size: 16px;
-      color: #fff;
-      transition: .5s;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .field-wrapper input:focus~label,
-    .login-modal .field-wrapper input:valid~label {
-      top: -5px;
-      color: #00d4ff;
-    }
-
-    .login-modal .field-wrapper i {
-      position: absolute;
-      top: 50%;
-      right: 0;
-      font-size: 18px;
-      transform: translateY(-50%);
-      color: #fff;
-    }
-
-    .login-modal .field-wrapper input:focus~i,
-    .login-modal .field-wrapper input:valid~i {
-      color: #00d4ff;
-    }
-
-    .login-modal .submit-button {
-      position: relative;
-      width: 100%;
-      height: 45px;
-      background: transparent;
-      border-radius: 40px;
-      cursor: pointer;
-      font-size: 16px;
-      font-weight: 600;
-      border: 2px solid #00d4ff;
-      overflow: hidden;
-      z-index: 1;
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .submit-button::before {
-      content: "";
-      position: absolute;
-      height: 300%;
-      width: 100%;
-      background: linear-gradient(#1a1a2e, #00d4ff, #1a1a2e, #00d4ff);
-      top: -100%;
-      left: 0;
-      z-index: -1;
-      transition: .5s;
-    }
-
-    .login-modal .submit-button:hover:before {
-      top: 0;
-    }
-
-    .login-modal .switch-link {
-      font-size: 14px;
-      text-align: center;
-      margin: 20px 0 10px;
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .switch-link a {
-      text-decoration: none;
-      color: #00d4ff;
-      font-weight: 600;
-      cursor: pointer;
-    }
-
-    .login-modal .switch-link a:hover {
-      text-decoration: underline;
-    }
-
-    .login-modal .welcome-section {
-      position: absolute;
-      top: 0;
-      height: 100%;
-      width: 50%;
-      display: flex;
-      justify-content: center;
-      flex-direction: column;
-    }
-
-    .login-modal .welcome-section.signin {
-      right: 0;
-      text-align: right;
-      padding: 0 40px 60px 150px;
-    }
-
-    .login-modal .welcome-section.signin .slide-element {
-      transform: translateX(0);
-      transition: .7s ease;
-      opacity: 1;
-      filter: blur(0px);
-    }
-
-    .login-modal .auth-wrapper.toggled .welcome-section.signin .slide-element {
-      transform: translateX(120%);
-      opacity: 0;
-      filter: blur(10px);
-    }
-
-    .login-modal .welcome-section.signup {
-      left: 0;
-      text-align: left;
-      padding: 0 150px 60px 38px;
-      pointer-events: none;
-    }
-
-    .login-modal .welcome-section.signup .slide-element {
-      transform: translateX(-120%);
-      transition: .7s ease;
-      opacity: 0;
-      filter: blur(10px);
-    }
-
-    .login-modal .auth-wrapper.toggled .welcome-section.signup .slide-element {
-      transform: translateX(0%);
-      opacity: 1;
-      filter: blur(0);
-    }
-
-    .login-modal .welcome-section h2 {
-      text-transform: uppercase;
-      font-size: 36px;
-      line-height: 1.3;
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .welcome-section p {
-      font-size: 16px;
-      color: #fff;
-      font-family: 'Poppins', sans-serif;
-    }
-
-    .login-modal .auth-wrapper .background-shape {
-      position: absolute;
-      right: 0;
-      top: -5px;
-      height: 600px;
-      width: 850px;
-      background: linear-gradient(45deg, #1a1a2e, #00d4ff);
-      transform: rotate(10deg) skewY(40deg);
-      transform-origin: bottom right;
-      transition: 1.5s ease;
-      transition-delay: 1.6s;
-    }
-
-    .login-modal .auth-wrapper.toggled .background-shape {
-      transform: rotate(0deg) skewY(0deg);
-      transition-delay: .5s;
-    }
-
-    .login-modal .auth-wrapper .secondary-shape {
-      position: absolute;
-      left: 250px;
-      top: 100%;
-      height: 700px;
-      width: 850px;
-      background: #1a1a2e;
-      border-top: 3px solid #00d4ff;
-      transform: rotate(0deg) skewY(0deg);
-      transform-origin: bottom left;
-      transition: 1.5s ease;
-      transition-delay: .5s;
-    }
-
-    .login-modal .auth-wrapper.toggled .secondary-shape {
-      transform: rotate(-11deg) skewY(-41deg);
-      transition-delay: 1.2s;
-    }
-
-    /* Responsive login modal */
-    @media (max-width: 768px) {
-      .login-modal-content {
-        width: 95%;
-        max-width: 100%;
-      }
-
-      .login-modal .auth-wrapper {
-        height: auto;
-        min-height: 500px;
-        flex-direction: column;
-      }
-
-      .login-modal .auth-wrapper .credentials-panel,
-      .login-modal .welcome-section {
-        width: 100%;
-        position: relative;
-      }
-
-      .login-modal .credentials-panel.signin,
-      .login-modal .credentials-panel.signup {
-        padding: 40px 30px;
-        left: 0;
-        right: 0;
-      }
-
-      .login-modal .credentials-panel.signin .slide-element,
-      .login-modal .credentials-panel.signup .slide-element {
-        transform: translateY(0);
-        opacity: 1;
-        filter: blur(0);
-      }
-
-      .login-modal .auth-wrapper .background-shape,
-      .login-modal .auth-wrapper .secondary-shape {
-        display: none;
-      }
-
-      .login-modal-close {
-        right: 15px;
-        top: 15px;
-      }
-    }
-
-    @media (max-width: 480px) {
-
-      .login-modal .credentials-panel.signin,
-      .login-modal .credentials-panel.signup {
-        padding: 30px 20px;
-      }
-
-      .login-modal .credentials-panel h2 {
-        font-size: 24px;
-      }
-
-      .login-modal .field-wrapper input,
-      .login-modal .field-wrapper label {
-        font-size: 14px;
-      }
-
-      .login-modal .submit-button {
-        font-size: 14px;
-        height: 40px;
-      }
-
-      .login-modal .switch-link {
-        font-size: 13px;
-      }
-    }
-
-    /* Login Message Styles */
-    .login-message {
+      gap: 15px;
       margin-top: 15px;
-      padding: 12px;
-      border-radius: 8px;
-      font-size: 14px;
-      text-align: center;
-      display: none;
-      font-family: 'Poppins', sans-serif;
     }
 
-    .login-message.show {
-      display: block;
+    .avatar-option {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      background: rgba(255, 255, 255, 0.05);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.5rem;
+      cursor: pointer;
+      border: 2px solid transparent;
+      transition: all 0.2s ease;
     }
 
-    .login-message.success {
-      background-color: rgba(0, 255, 136, 0.2);
-      color: #00ff88;
-      border: 1px solid rgba(0, 255, 136, 0.5);
-    }
-
-    .login-message.error {
-      background-color: rgba(255, 0, 0, 0.2);
-      color: #ff6b6b;
-      border: 1px solid rgba(255, 0, 0, 0.5);
-    }
-
-    .login-message.loading {
-      background-color: rgba(0, 212, 255, 0.2);
-      color: #00d4ff;
-      border: 1px solid rgba(0, 212, 255, 0.5);
+    .avatar-option:hover {
+      border-color: var(--accent);
+      background: rgba(255, 255, 255, 0.1);
     }
   </style>
+
 </head>
 
 <body>
@@ -1039,14 +721,18 @@
     <a href="home.html" class="navbar-brand">J.A.R.V.I.S</a>
     <div style="display: flex; gap: 20px; align-items: center;">
       <!-- User Info Section (Hidden by default) -->
-      <div id="userInfo" class="user-info" style="display: none;">
+      <div id="userInfo" class="user-info" style="display: none; align-items: center; gap: 10px;">
+        <div id="userAvatarContainer" class="user-avatar-container" title="Change Avatar">
+          <i id="userAvatarIcon" class="fa-solid fa-user user-avatar-icon"></i>
+          <img id="userAvatarImg" class="user-avatar-img" src="" style="display: none;">
+        </div>
         <span class="user-name" id="userName">User</span>
         <a href="#" id="logoutBtn" class="navbar-link logout-btn">Logout</a>
       </div>
       <!-- Login/Go to Assistant (Shown by default) -->
       <div id="authLinks" class="auth-links">
-        <a href="#" id="loginBtn" class="navbar-link">Login</a>
-        <a href="#" id="goAssistantLink" class="navbar-link">Go to Assistant</a>
+        <a href="login.html" id="loginBtn" class="navbar-link">Login</a>
+        <a href="index.html" id="goAssistantLink" class="navbar-link">Go to Assistant</a>
       </div>
     </div>
   </div>
@@ -1180,21 +866,21 @@
         <!-- Signup Panel -->
         <div class="credentials-panel signup">
           <h2 class="slide-element">Register</h2>
-          <form action="#">
+          <form action="#" id="registerForm">
             <div class="field-wrapper slide-element">
-              <input type="text" required>
+              <input type="text" id="registerUsername" required>
               <label for="">Username</label>
               <i class="fa-solid fa-user"></i>
             </div>
 
             <div class="field-wrapper slide-element">
-              <input type="email" required>
+              <input type="email" id="registerEmail" required>
               <label for="">Email</label>
               <i class="fa-solid fa-envelope"></i>
             </div>
 
             <div class="field-wrapper slide-element">
-              <input type="password" required>
+              <input type="password" id="registerPassword" required>
               <label for="">Password</label>
               <i class="fa-solid fa-lock"></i>
             </div>
@@ -1218,7 +904,9 @@
   </div>
   <!-- Eel client (served by the Eel Python server) -->
   <script type="text/javascript" src="/eel.js"></script>
+
   <script>
+
     // Check for eel availability when the page is served from the Eel server.
     (function () {
       if (typeof eel !== 'undefined') {
@@ -1234,7 +922,9 @@
     })();
   </script>
 
+
   <script>
+
     // ===== FIXED NAVIGATION FUNCTIONALITY =====
 
     function navigateToPage(pageName) {
@@ -1382,6 +1072,7 @@
     const loginTrigger = loginModal.querySelector('.login-trigger');
     const registerTrigger = loginModal.querySelector('.register-trigger');
     const loginForm = document.getElementById('loginForm');
+    const registerForm = document.getElementById('registerForm');
     const loginMessage = document.getElementById('loginMessage');
     const userInfo = document.getElementById('userInfo');
     const authLinks = document.getElementById('authLinks');
@@ -1442,48 +1133,75 @@
         return;
       }
 
-      showLoginMessage('Authenticating with Google...', 'loading');
+      showLoginMessage('Logging in...', 'loading');
 
       try {
-        // Check if Eel is available
         if (typeof eel !== 'undefined') {
-          // Call the Python backend to verify and authenticate Google
-          eel.verify_and_authenticate_google(email)(async function (result) {
+          eel.user_login(email, password)(async function (result) {
             if (result.success) {
               await eel.set_authenticated_user(result.user_name, result.user_email)();
               showLoginMessage(
-                `Γ£à ${result.message}\nYou can now access all Google features!`,
+                `Login successful! Welcome ${result.user_name}.`,
                 'success'
               );
-              console.log('≡ƒÄë User authenticated:', result.user_name, result.user_email);
 
-              // Clear form
               document.getElementById('loginUsername').value = '';
               document.getElementById('loginPassword').value = '';
 
-              // Close modal after 2 seconds
               setTimeout(() => {
                 loginModal.classList.remove('show');
                 loginMessage.classList.remove('show');
-                // Display user info in navbar
-                displayUserInfo(result.user_name);
-                // Optionally navigate or update UI
-                alert(`Welcome ${result.user_name}! All Google services are now available.`);
-              }, 2000);
+                displayUserInfo(result.user_name, result.avatar);
+              }, 1500);
             } else {
               showLoginMessage(result.message, 'error');
-              console.error('Authentication failed:', result.message);
             }
           });
-        } else {
-          showLoginMessage('Backend connection not available. Please ensure the app is running.', 'error');
-          console.log('Γä╣∩╕Å Eel not available - running in standalone mode');
         }
       } catch (error) {
         console.error('Login error:', error);
-        showLoginMessage('An error occurred during authentication. Please try again.', 'error');
+        showLoginMessage('An error occurred during authentication.', 'error');
       }
     });
+
+    // ===== REGISTRATION =====
+    if (registerForm) {
+      registerForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+
+        const username = document.getElementById('registerUsername').value.trim();
+        const email = document.getElementById('registerEmail').value.trim();
+        const password = document.getElementById('registerPassword').value;
+
+        if (!username || !email || !password) {
+          showLoginMessage('Please fill all fields', 'error');
+          return;
+        }
+
+        showLoginMessage('Registering...', 'loading');
+
+        try {
+          if (typeof eel !== 'undefined') {
+            eel.user_register(username, email, password)(function (result) {
+              if (result.success) {
+                showLoginMessage('Registration successful! Please sign in.', 'success');
+                // Switch to login tab
+                setTimeout(() => {
+                  authWrapper.classList.remove('toggled');
+                  document.getElementById('loginUsername').value = email;
+                  registerForm.reset();
+                }, 1500);
+              } else {
+                showLoginMessage(result.message, 'error');
+              }
+            });
+          }
+        } catch (error) {
+          console.error('Register error:', error);
+          showLoginMessage('An error occurred during registration.', 'error');
+        }
+      });
+    }
 
     // Helper function to show login messages
     function showLoginMessage(message, type) {
@@ -1493,8 +1211,9 @@
 
     // ===== USER INFO MANAGEMENT =====
     // Display user info in navbar
-    function displayUserInfo(name) {
+    function displayUserInfo(name, avatar) {
       userName.textContent = name || 'User';
+      if (avatar) updateAvatarUI(avatar);
       authLinks.style.display = 'none';
       userInfo.style.display = 'flex';
     }
@@ -1576,7 +1295,132 @@
         hideUserInfo();
       }
     });
+
+
+
+    <!-- Avatar Modal -->
+    <div id="avatarModal" class="modal">
+      <div class="modal-content glass-panel" style="max-width: 350px;">
+        <span class="close" id="closeAvatarModal">&times;</span>
+        <h2>Select Avatar</h2>
+
+        <div class="avatar-presets">
+          <div class="avatar-option" data-preset="fa-user-astronaut"><i class="fa-solid fa-user-astronaut"></i></div>
+          <div class="avatar-option" data-preset="fa-user-ninja"><i class="fa-solid fa-user-ninja"></i></div>
+          <div class="avatar-option" data-preset="fa-user-secret"><i class="fa-solid fa-user-secret"></i></div>
+          <div class="avatar-option" data-preset="fa-robot"><i class="fa-solid fa-robot"></i></div>
+        </div>
+
+        <div style="margin-top: 25px; text-align: center;">
+          <p style="margin-bottom: 10px;">Or upload your own:</p>
+          <input type="file" id="avatarUploadInput" accept="image/*" style="display: none;" />
+          <button id="avatarUploadBtn" class="submit-button" style="width: auto; padding: 10px 20px;">Upload Image</button>
+        </div>
+
+        <div id="avatarMessage" class="message" style="margin-top: 15px;"></div>
+      </div>
+    </div>
+
+    // ===== AVATAR LOGIC =====
+    const avatarModal = document.getElementById('avatarModal');
+    const closeAvatarModal = document.getElementById('closeAvatarModal');
+    const userAvatarContainer = document.getElementById('userAvatarContainer');
+    const avatarUploadBtn = document.getElementById('avatarUploadBtn');
+    const avatarUploadInput = document.getElementById('avatarUploadInput');
+    const avatarMessage = document.getElementById('avatarMessage');
+    const userAvatarIcon = document.getElementById('userAvatarIcon');
+    const userAvatarImg = document.getElementById('userAvatarImg');
+
+    userAvatarContainer.addEventListener('click', () => {
+      avatarModal.classList.add('show');
+      avatarMessage.classList.remove('show');
+    });
+
+    closeAvatarModal.addEventListener('click', () => {
+      avatarModal.classList.remove('show');
+    });
+
+    // Handle preset selection
+    document.querySelectorAll('.avatar-option').forEach(option => {
+      option.addEventListener('click', () => {
+        const preset = option.getAttribute('data-preset');
+        avatarMessage.textContent = 'Updating...';
+        avatarMessage.className = 'message show loading';
+
+        if (typeof eel !== 'undefined') {
+          eel.update_avatar('preset', preset)(res => {
+            if (res.success) {
+              avatarMessage.textContent = 'Avatar updated!';
+              avatarMessage.className = 'message show success';
+              updateAvatarUI(res.avatar);
+              setTimeout(() => avatarModal.classList.remove('show'), 1000);
+            } else {
+              avatarMessage.textContent = res.message;
+              avatarMessage.className = 'message show error';
+            }
+          });
+        }
+      });
+    });
+
+    // Handle file upload click
+    avatarUploadBtn.addEventListener('click', (e) => {
+      e.preventDefault();
+      avatarUploadInput.click();
+    });
+
+    // Handle file selection
+    avatarUploadInput.addEventListener('change', (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        if (file.size > 2 * 1024 * 1024) { // 2MB limit
+          avatarMessage.textContent = 'File too large (max 2MB)';
+          avatarMessage.className = 'message show error';
+          return;
+        }
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+          const base64 = e.target.result;
+          avatarMessage.textContent = 'Uploading...';
+          avatarMessage.className = 'message show loading';
+
+          if (typeof eel !== 'undefined') {
+            eel.update_avatar('upload', base64)(res => {
+              if (res.success) {
+                avatarMessage.textContent = 'Avatar updated!';
+                avatarMessage.className = 'message show success';
+                updateAvatarUI(res.avatar);
+                setTimeout(() => avatarModal.classList.remove('show'), 1000);
+              } else {
+                avatarMessage.textContent = res.message || 'Upload failed';
+                avatarMessage.className = 'message show error';
+              }
+            });
+          }
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+
+    function updateAvatarUI(avatarStr) {
+      if (!avatarStr) return;
+
+      if (avatarStr.startsWith('preset:')) {
+        const cls = avatarStr.split(':')[1];
+        userAvatarImg.style.display = 'none';
+        userAvatarIcon.style.display = 'block';
+        userAvatarIcon.className = 'fa-solid ' + cls + ' user-avatar-icon';
+      } else if (avatarStr.startsWith('file:')) {
+        const filename = avatarStr.split(':')[1];
+        userAvatarIcon.style.display = 'none';
+        userAvatarImg.style.display = 'block';
+        // Add timestamp to prevent browser caching
+        userAvatarImg.src = 'assets/avatars/' + filename + '?t=' + new Date().getTime();
+      }
+    }
   </script>
 </body>
+
 
 </html>

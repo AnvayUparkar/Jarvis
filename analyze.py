@@ -25,7 +25,7 @@ os.makedirs(COMPLETED_FOLDER, exist_ok=True)
 
 # Configure the Generative AI model
 genai.configure(api_key=GEN_AI_API_KEY)
-model = genai.GenerativeModel("gemini-2.5-flash") # Using gemini-2.5-flash as requested implicitly
+model = genai.GenerativeModel("gemini-2.5-flash-lite") # Using gemini-2.5-flash-lite as requested implicitly
 
 def extract_text_from_docx(file_path):
     """

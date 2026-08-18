@@ -206,7 +206,7 @@
 # def get_gemini_model():
 #     """Initializes and returns the Gemini Pro model."""
 #     try:
-#         model = google_ai.GenerativeModel("gemini-2.5-flash") # Using gemini-2.5-flash for faster responses
+#         model = google_ai.GenerativeModel("gemini-2.5-flash-lite") # Using gemini-2.5-flash-lite for faster responses
 #         return model
 #     except Exception as e:
 #         print_message(f"Failed to load Gemini model: {e}", "error")

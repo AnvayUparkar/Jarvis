@@ -1,72 +1,51 @@
-# database.py - SQLite Database Handler for Jarvis Authentication
-# Uses absolute paths to guarantee persistent storage in the project root.
+# database.py - MongoDB Database Handler for Jarvis Authentication
 
-import sqlite3
 import os
+from pymongo import MongoClient
+from dotenv import load_dotenv
 
-# ============================================================================
-# CRITICAL: Force absolute path to db.sqlite in the SAME directory as this file
-# This prevents the "empty database" issue when running from different directories
-# ============================================================================
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-DB_PATH = os.path.join(BASE_DIR, "db.sqlite")
+# Load environment variables
+load_dotenv()
 
+MONGO_URI = os.getenv("MONGO_URI", "mongodb://localhost:27017/")
+DB_NAME = "jarvis_db"
+# Keep DB_PATH for backwards compatibility in logging if needed
+DB_PATH = MONGO_URI
 
 def get_db_connection():
     """
-    Establishes a connection to the SQLite database.
-    Returns a connection object with row_factory set for dict-like access.
+    Establishes a connection to the MongoDB database.
+    Returns the database object.
     """
     try:
-        conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-        conn.row_factory = sqlite3.Row
-        return conn
-    except sqlite3.Error as e:
-        print(f"[DATABASE] ❌ Connection error: {e}")
+        client = MongoClient(MONGO_URI, serverSelectionTimeoutMS=30000)
+        # Verify connection
+        client.admin.command('ping')
+        db = client[DB_NAME]
+        return db
+    except Exception as e:
+        print(f"[DATABASE]  Connection error: {e}")
         return None
-
 
 def init_db():
     """
-    Initializes the database and creates the users table if it doesn't exist.
-    Called once at application startup.
+    Initializes the database. For MongoDB, collections are created implicitly,
+    but we can create indexes here if needed.
     """
-    print(f"\n[DATABASE] 🛠️  INITIALIZING DATABASE")
-    print(f"[DATABASE] 📂  Path: {DB_PATH}")
+    print(f"\n[DATABASE]   INITIALIZING DATABASE (MongoDB)")
+    print(f"[DATABASE]   URI: {MONGO_URI}")
 
-    conn = get_db_connection()
-    if not conn:
-        print("[DATABASE] ❌ Failed to connect for initialization.")
+    db = get_db_connection()
+    if db is None:
+        print("[DATABASE]  Failed to connect for initialization.")
         return False
 
     try:
-        cursor = conn.cursor()
-
-        # Check if table already exists
-        cursor.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='users'")
-        table_exists = cursor.fetchone()
-
-        if not table_exists:
-            # Create users table with BLOB for password_hash (bcrypt returns bytes)
-            cursor.execute('''
-                CREATE TABLE IF NOT EXISTS users (
-                    id INTEGER PRIMARY KEY AUTOINCREMENT,
-                    username TEXT UNIQUE NOT NULL,
-                    email TEXT UNIQUE NOT NULL,
-                    password_hash BLOB NOT NULL,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            ''')
-            conn.commit()
-            print("[DATABASE] ✅ Users table created successfully.")
-        else:
-            print("[DATABASE] ℹ️  Users table already exists.")
-
-        conn.close()
+        # Create unique indexes for users collection
+        db.users.create_index("username", unique=True)
+        db.users.create_index("email", unique=True)
+        print("[DATABASE]  Users collection indexes ensured.")
         return True
-
-    except sqlite3.Error as e:
-        print(f"[DATABASE] ❌ Initialization error: {e}")
-        if conn:
-            conn.close()
+    except Exception as e:
+        print(f"[DATABASE]  Initialization error: {e}")
         return False

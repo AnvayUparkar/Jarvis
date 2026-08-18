@@ -2,87 +2,133 @@
 
 let attachedFiles = []; // Global array to store queued files
 
+// Global flag to prevent duplicate sends
+let isSending = false;
+
 // Function to send chat input to Python
-document.getElementById("SendBtn").onclick = async function () {
-    const message = document.getElementById("chatbox").value.trim();
+async function sendMessage() {
+    // Debouncing protection
+    if (isSending) {
+        console.warn("[SEND] Already sending, ignoring duplicate trigger");
+        return;
+    }
+
+    const chatbox = document.getElementById("chatbox");
+    const message = chatbox.value.trim();
 
     if (message === "" && attachedFiles.length === 0) return;
 
-    if (attachedFiles.length > 0) {
-        // Multi-file upload flow
-        const formData = new FormData();
-        formData.append("message", message);
-        attachedFiles.forEach(file => {
-            formData.append("files", file);
-        });
+    // Set flag to prevent duplicate sends
+    isSending = true;
 
-        try {
-            ShowLoader();
-            const response = await fetch("http://localhost:5014/upload_multi", {
-                method: "POST",
-                body: formData
+    try {
+        if (attachedFiles.length > 0) {
+            // Multi-file upload flow
+            const formData = new FormData();
+            formData.append("message", message);
+            attachedFiles.forEach(file => {
+                formData.append("files", file);
             });
 
-            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+            try {
+                ShowLoader();
+                const response = await fetch("http://localhost:5014/upload_multi", {
+                    method: "POST",
+                    body: formData
+                });
 
-            const result = await response.json();
-            console.log("Upload result:", result);
+                if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
 
-            if (message !== "") {
-                appendUserMessage(message);
-            } else {
-                addChatBubble("sender", `Attached ${attachedFiles.length} files`);
+                const result = await response.json();
+                console.log("Upload result:", result);
+
+                if (message !== "") {
+                    appendUserMessage(message);
+                } else {
+                    addChatBubble("sender", `Attached ${attachedFiles.length} files`);
+                }
+
+                // Clear queue and UI
+                attachedFiles = [];
+                updateFileQueueUI();
+                chatbox.value = "";
+                chatbox.style.height = "44px"; // Reset height
+                HideLoader();
+            } catch (error) {
+                console.error("Error sending multi-file request:", error);
+                addChatBubble("receiver", `❌ Error sending files: ${error.message}. <br>Backend service (port 5014) may be unreachable.`);
+                HideLoader();
             }
-
-            // Clear queue and UI
-            attachedFiles = [];
-            updateFileQueueUI();
-            const chatbox = document.getElementById("chatbox");
+        } else {
+            // Single message flow - ONLY render user message once here
+            window.lastUserInput = message;
+            appendUserMessage(message);
+            eel.handle_command_from_frontend(message)();
             chatbox.value = "";
             chatbox.style.height = "44px"; // Reset height
-            HideLoader();
-        } catch (error) {
-            console.error("Error sending multi-file request:", error);
-            addChatBubble("receiver", `❌ Error sending files: ${error.message}. <br>Backend service (port 5014) may be unreachable.`);
-            HideLoader();
         }
+    } finally {
+        // Always reset the flag after processing
+        isSending = false;
+    }
+}
+
+// ===== EVENT LISTENER SETUP - ALL IN DOMContentLoaded =====
+// CRITICAL: All event listeners MUST be attached after DOM is ready
+// to prevent duplicate attachments and race conditions
+document.addEventListener("DOMContentLoaded", function () {
+    console.log("[INIT] Attaching event listeners...");
+
+    // 1. Send Button
+    const sendBtn = document.getElementById("SendBtn");
+    if (sendBtn) {
+        sendBtn.onclick = sendMessage;
+        console.log("[INIT] ✅ SendBtn onclick attached");
     } else {
-        // Existing single message flow
-        window.lastUserInput = message;
-        appendUserMessage(message);
-        eel.handle_command_from_frontend(message)();
-        const chatbox = document.getElementById("chatbox");
-        chatbox.value = "";
-        chatbox.style.height = "44px"; // Reset height
+        console.error("[INIT] ❌ SendBtn not found!");
     }
-};
 
-// Mic Button
-document.getElementById("MicBtn").onclick = function () {
-    if (typeof eel.listen_from_frontend === 'function') {
-        eel.listen_from_frontend();
+    // 2. Mic Button
+    const micBtn = document.getElementById("MicBtn");
+    if (micBtn) {
+        micBtn.onclick = function () {
+            if (typeof eel.listen_from_frontend === 'function') {
+                eel.listen_from_frontend();
+            } else {
+                console.warn("listen_from_frontend not found.");
+            }
+        };
+        console.log("[INIT] ✅ MicBtn onclick attached");
     } else {
-        console.warn("listen_from_frontend not found.");
+        console.error("[INIT] ❌ MicBtn not found!");
     }
-};
 
-// Press Enter to send
-// Press Enter to send (Shift+Enter for new line)
-const chatbox = document.getElementById("chatbox");
-chatbox.addEventListener("keydown", function (event) {
-    if (event.key === "Enter" && !event.shiftKey) {
-        event.preventDefault(); // Prevent default new line
-        document.getElementById("SendBtn").click();
-    }
-});
+    // 3. Chatbox Enter Key Handler
+    const chatbox = document.getElementById("chatbox");
+    if (chatbox) {
+        // Press Enter to send (Shift+Enter for new line)
+        chatbox.addEventListener("keydown", function (event) {
+            if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                sendMessage(); // Call function directly
+            }
+        });
 
-// Auto-resize textarea
-chatbox.addEventListener("input", function () {
-    this.style.height = 'auto'; // Reset height
-    this.style.height = (this.scrollHeight) + 'px';
-    if (this.value === '') {
-        this.style.height = '44px'; // Reset to min-height if empty
+        // Auto-resize textarea
+        chatbox.addEventListener("input", function () {
+            this.style.height = 'auto';
+            this.style.height = (this.scrollHeight) + 'px';
+            if (this.value === '') {
+                this.style.height = '44px';
+            }
+        });
+
+        console.log("[INIT] ✅ Chatbox event listeners attached");
+    } else {
+        console.error("[INIT] ❌ Chatbox not found!");
     }
+
+    console.log("[INIT] All event listeners attached successfully");
 });
 
 // File Attach (clicks hidden input)
@@ -155,10 +201,21 @@ function receiverText(responseText) {
     }
 }
 
-eel.expose(appendUserMessage);
+// REMOVED: eel.expose(appendUserMessage) - User messages should NEVER be called from Python backend
+// User messages are only rendered from the frontend when user sends them
 function appendUserMessage(message) {
     const chatArea = document.getElementById("receiverTextArea");
     if (!chatArea) return;
+
+    // Duplicate detection - check if the last message is identical
+    const lastBubble = chatArea.querySelector(".chat-bubble.sender:last-child");
+    if (lastBubble) {
+        const lastMessageText = lastBubble.querySelector(".chat-message")?.innerText?.replace("You:\n", "").trim();
+        if (lastMessageText === message.trim()) {
+            console.warn("[DUPLICATE PREVENTED] Duplicate user message blocked:", message);
+            return;
+        }
+    }
 
     // UI Update
     const userBubble = document.createElement("div");

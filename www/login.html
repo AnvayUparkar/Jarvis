@@ -6,6 +6,7 @@
     <title>Login & Signup Form</title>
 
     <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="login.css">
 
     <!-- FIXED Font Awesome CDN -->
     <link
@@ -19,7 +20,7 @@
     <script type="text/javascript" src="/eel.js"></script>
 </head>
 
-<body>
+<body class="auth-page">
 
 <div class="auth-wrapper">
     <div class="background-shape"></div>
@@ -31,7 +32,7 @@
 
         <form id="loginForm">
             <div class="field-wrapper slide-element">
-                <input type="text" id="loginUsername" required></div>
+                <input type="text" id="loginUsername" required>
                 <label>Username</label>
                 <i class="fa-solid fa-user"></i>
             </div>
@@ -161,13 +162,20 @@ waitForEel(() => {
             return;
         }
 
-        eel.user_login(username, password)(res => {
-            if (res && res.success) {
-                window.location.href = "home.html";
-            } else {
-                alert(res?.message || "Invalid credentials");
-            }
-        });
+        if (typeof eel !== 'undefined' && typeof eel.user_login === 'function') {
+            eel.user_login(username, password)(async (res) => {
+                if (res && res.success) {
+                    if (typeof eel.set_authenticated_user === 'function') {
+                        await eel.set_authenticated_user(res.user_name, res.user_email)();
+                    }
+                    window.location.href = "home.html";
+                } else {
+                    alert(res?.message || "Invalid credentials");
+                }
+            });
+        } else {
+            alert("Backend not connected. Please start Jarvis.");
+        }
     });
 
     /* REGISTER */

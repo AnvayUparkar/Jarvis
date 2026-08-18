@@ -12,8 +12,9 @@ logger = logging.getLogger(__name__)
 
 # === CONFIGURATION (PLACEHOLDERS - REPLACE WITH YOUR AZURE APP DETAILS) ===
 # TODO: Move sensitive data to .env
-CLIENT_ID = "ba1b3da0-d628-4175-a821-b70e3b077a71"
-TENANT_ID = "common" # or your specific tenant ID
+#ba1b3da0-d628-4175-a821-b70e3b077a71
+CLIENT_ID = "a9e8d2aa-ba2f-409e-8f06-c94ddcea2a88"
+TENANT_ID = "2145b90d-af2a-43cb-b93b-fa836c9b4b84" # or your specific tenant ID
 AUTHORITY = f"https://login.microsoftonline.com/{TENANT_ID}"
 
 # Scopes required for the application

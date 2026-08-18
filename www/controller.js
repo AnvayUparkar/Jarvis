@@ -48,7 +48,10 @@ function appendUserMessage(message) {
 }
 */
 
-// Updated receiverText function to correctly handle chat messages
+// Updated receiverText function - ONLY renders Jarvis response
+// FIXED: Removed user message rendering here - user messages are ALREADY 
+// rendered by sendMessage() in main.js via appendUserMessage().
+// Rendering them here again from window.lastUserInput caused the DUPLICATE.
 eel.expose(receiverText);
 function receiverText(responseText) {
     const area = document.getElementById("receiverTextArea");
@@ -57,24 +60,22 @@ function receiverText(responseText) {
         return;
     }
 
-    const userInput = window.lastUserInput || "";
+    // REMOVED: User bubble rendering from window.lastUserInput
+    // This was the ROOT CAUSE of duplicate "You: hi" messages!
+    // User messages are rendered ONCE by appendUserMessage() in main.js
 
-    // Only show user input if not an initialization message and if there was actual input
-    if (userInput && !responseText.toLowerCase().includes("initializing jarvis")) {
-        const userBubble = document.createElement("div");
-        userBubble.className = "chat-bubble sender";
-        userBubble.innerHTML = `<div class='chat-message user-message'><b>You:</b><br>${userInput}</div>`;
-        area.appendChild(userBubble);
-        window.lastUserInput = ""; // Clear last user input after displaying it
-    }
-
-    // Jarvis bubble
+    // Jarvis bubble only
     const botBubble = document.createElement("div");
     botBubble.className = "chat-bubble receiver";
     botBubble.innerHTML = `<div class='chat-message jarvis-message'><b>Jarvis:</b><br>${responseText}</div>`;
     area.appendChild(botBubble);
 
     area.scrollTop = area.scrollHeight;
+
+    // Re-render MathJax if available
+    if (window.MathJax && window.MathJax.typesetPromise) {
+        MathJax.typesetPromise([botBubble]).catch(err => console.log('MathJax rendering error:', err));
+    }
 }
 
 function sendTextCommand() {

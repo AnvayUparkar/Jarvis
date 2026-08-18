@@ -54,12 +54,12 @@ os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 # Configure Gemini
 if GEN_AI_API_KEY:
     genai.configure(api_key=GEN_AI_API_KEY)
-    model = genai.GenerativeModel("gemini-2.5-flash")
+    model = genai.GenerativeModel("gemini-2.5-flash-lite")
 else:
     model = None
 
 # --- Google Slides API Config ---
-GOOGLE_CREDENTIALS_FILE = 'credentials3.json'
+GOOGLE_CREDENTIALS_FILE = 'client_secret_798986409322-mhuifnus25qs6clsoejlhdsah7f4o6hl.apps.googleusercontent.com.json'
 GOOGLE_TOKEN_FILE = 'token.json'
 SCOPES = [
     'https://www.googleapis.com/auth/calendar.freebusy',
@@ -77,6 +77,9 @@ def get_google_credentials():
     if os.path.exists(GOOGLE_TOKEN_FILE):
         try:
             creds = Credentials.from_authorized_user_file(GOOGLE_TOKEN_FILE, SCOPES)
+            if creds and not all(s in creds.scopes for s in SCOPES):
+                print("[AUTH] Loaded credentials do not cover all required scopes. Forcing re-authentication.")
+                creds = None
         except Exception:
             creds = None
 
@@ -84,6 +87,9 @@ def get_google_credentials():
         if creds and creds.expired and creds.refresh_token:
             try:
                 creds.refresh(Request())
+                if creds and not all(s in creds.scopes for s in SCOPES):
+                    print("[AUTH] Refreshed credentials still lack required scopes. Forcing re-auth.")
+                    creds = None
             except Exception:
                 creds = None
         
@@ -261,16 +267,21 @@ def create_google_presentation(topic, slides_content, speak, theme="PROFESSIONAL
     """
     creds = get_google_credentials()
     if not creds:
-        speak("Failed to authenticate with Google.")
+        error_msg = "Failed to authenticate with Google."
+        speak(error_msg)
+        print(f"❌ {error_msg}")
         return None
 
     try:
+        print(f"DEBUG: Building Slides service...")
         service = build('slides', 'v1', credentials=creds)
         
         presentation_title = f"{topic} - Jarvis Generated ({theme})"
         body = {'title': presentation_title}
+        print(f"DEBUG: Creating presentation with title: {presentation_title}")
         presentation = service.presentations().create(body=body).execute()
         presentation_id = presentation.get('presentationId')
+        print(f"DEBUG: Created presentation with ID: {presentation_id}")
         speak(f"Creating a {theme.lower().replace('_', ' ')} style presentation titled {presentation_title}.")
 
         requests_batch = []
@@ -312,11 +323,15 @@ def create_google_presentation(topic, slides_content, speak, theme="PROFESSIONAL
 
         # D. Apply Styling (Now safe because objects exist)
         if ENABLE_NANO_BANANA:
-            requests_batch.extend(apply_nano_banana_style(
-                main_title_slide_id, main_title_textbox_id, None, theme=theme, is_title_slide=True
-            ))
+            try:
+                requests_batch.extend(apply_nano_banana_style(
+                    main_title_slide_id, main_title_textbox_id, None, theme=theme, is_title_slide=True
+                ))
+            except Exception as style_err:
+                print(f"WARNING: Failed to apply nano banana style to title slide: {style_err}")
 
         # --- CONTENT SLIDES ---
+        print(f"DEBUG: Processing {len(slides_content)} content slides...")
         for i, slide in enumerate(slides_content):
             current_slide_id = str(uuid.uuid4())
             title_textbox_id = str(uuid.uuid4())
@@ -375,21 +390,29 @@ def create_google_presentation(topic, slides_content, speak, theme="PROFESSIONAL
 
             # D. Apply Styling (Now safe because objects exist)
             if ENABLE_NANO_BANANA:
-                requests_batch.extend(apply_nano_banana_style(
-                    current_slide_id, title_textbox_id, body_textbox_id, theme=theme
-                ))
+                try:
+                    requests_batch.extend(apply_nano_banana_style(
+                        current_slide_id, title_textbox_id, body_textbox_id, theme=theme
+                    ))
+                except Exception as style_err:
+                    print(f"WARNING: Failed to apply nano banana style to slide {i+1}: {style_err}")
 
         # Execute
+        print(f"DEBUG: Executing batch update with {len(requests_batch)} requests...")
         if requests_batch:
             service.presentations().batchUpdate(
                 presentationId=presentation_id, body={'requests': requests_batch}
             ).execute()
             print(f"✅ Slides created successfully with {theme} theme.")
         
-        return f"https://docs.google.com/presentation/d/{presentation_id}/edit"
+        presentation_url = f"https://docs.google.com/presentation/d/{presentation_id}/edit"
+        print(f"DEBUG: Presentation created at: {presentation_url}")
+        return presentation_url
 
     except Exception as e:
-        print(f"❌ Error creating presentation: {e}")
+        print(f"❌ Error creating presentation: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
         speak("I encountered an issue while creating the presentation.")
         return None
     
@@ -457,8 +480,6 @@ def generate_presentation_from_file_endpoint():
     filename = request.json.get("filename")
     base64_file_data = request.json.get("file_data")
     mime_type = request.json.get("mime_type")
-    use_template = request.json.get("use_template", False)
-    template_id = request.json.get("template_id")
 
     if not all([filename, base64_file_data, mime_type]):
         return jsonify({"error": "Missing file data"}), 400
@@ -491,26 +512,53 @@ def generate_presentation_from_file_endpoint():
             return jsonify({"error": "Unsupported file type"}), 400
 
         # Prompt with Theme Detection
-        prompt = """
-        You are a presentation bot. 
-        1. Analyze the document. 
-           - If it is Technical/AI/Future/Science, set "theme" to "TECH_DARK".
-           - Otherwise, set "theme" to "PROFESSIONAL_LIGHT".
+        prompt = """Enhanced Prompt:
 
-        2. Provide output as JSON:
-        {
-            "title": "Presentation Title",
-            "theme": "TECH_DARK" or "PROFESSIONAL_LIGHT",
-            "slides": [
-                {
-                    "slide_number": 1, 
-                    "title": "Title", 
-                    "content_points": ["Point 1", "Point 2"]
-                }
-            ]
-        }
-        Generate at least 3-5 slides.
-        """
+You are an expert AI Presentation Designer responsible for generating high-quality, structured slide content.
+
+🎯 Objective
+
+Analyze the given document and convert it into a concise, engaging presentation.
+
+🧠 Theme Selection Logic
+If the topic relates to AI, Coding, Cybersecurity, Gaming, Space, or Future Technology, set theme to "PROFESSIONAL_LIGHT"
+📊 Slide Generation Rules
+Generate 6 to 8 slides only
+Ensure logical flow:
+Introduction
+Core Concepts / Details
+Supporting Points / Examples
+Summary / Conclusion
+Each slide must include:
+A clear, concise title
+6-8 bullet points (detailed, impactful, non-redundant)
+Avoid long sentences; keep points presentation-friendly
+✨ Content Quality Guidelines
+Use simple, professional language
+Prioritize clarity over complexity
+Avoid repetition across slides
+Ensure content is visually scannable
+Focus on key insights, not raw text dumping
+⚠️ Strict Output Format
+Output must be ONLY valid JSON
+No markdown, no explanation, no extra text
+Follow this exact structure:
+
+{
+"title": "Presentation Title",
+"theme": "PROFESSIONAL_LIGHT",
+"slides": [
+{
+"title": "Slide Title",
+"content_points": ["Point 1", "Point 2", "Point 3"]
+}
+]
+}
+
+🚫 Constraints
+Do NOT include anything outside JSON
+Do NOT exceed 6 slides
+Do NOT include empty or vague points"""
         
         gemini_input_parts.append({"text": prompt})
         response = model.generate_content(gemini_input_parts)
@@ -519,29 +567,41 @@ def generate_presentation_from_file_endpoint():
         if resp_text.startswith("```json"): resp_text = resp_text[7:].strip()
         if resp_text.endswith("```"): resp_text = resp_text[:-3].strip()
         
+        print(f"DEBUG: Gemini response: {resp_text[:200]}...")  # Log first 200 chars
         data = json.loads(resp_text)
         
         # Extract Theme
         theme = data.get("theme", "PROFESSIONAL_LIGHT")
         
+        # Transform slides to match expected format (title -> heading, content_points -> content)
+        transformed_slides = []
+        for slide in data.get("slides", []):
+            transformed_slide = {
+                "heading": slide.get("title") or slide.get("heading") or "Slide",
+                "content": slide.get("content_points") or slide.get("content") or []
+            }
+            transformed_slides.append(transformed_slide)
+        
         def dummy_speak(text): print(f"API SPEAK: {text}")
 
+        print(f"DEBUG: Creating presentation with {len(transformed_slides)} slides, theme: {theme}")
         url = create_google_presentation(
-            data["title"], 
-            data["slides"], 
+            data.get("title", "Presentation"), 
+            transformed_slides, 
             dummy_speak, 
-            theme=theme,
-            use_template=use_template, 
-            template_id=template_id
+            theme=theme
         )
 
         if url:
             return jsonify({"presentation_url": url, "theme_used": theme}), 200
         else:
-            return jsonify({"error": "Failed to create slides"}), 500
+            return jsonify({"error": "Failed to create slides - create_google_presentation returned None"}), 500
 
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        print(f"DEBUG: Exception in presentation endpoint: {e}", flush=True)
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": f"Failed to create slides: {str(e)}"}), 500
     finally:
         if os.path.exists(temp_path):
             os.remove(temp_path)
