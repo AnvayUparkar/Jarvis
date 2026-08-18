@@ -228,10 +228,21 @@ function appendUserMessage(message) {
     analyzeSentiment(message);
 }
 
+// Show Image Loading State
+eel.expose(showImageLoading);
+function showImageLoading() {
+    const loader = document.getElementById("image-loading");
+    const imageElement = document.getElementById("generated-image");
+    if (loader) loader.style.display = "block";
+    if (imageElement) imageElement.style.display = "none";
+}
+
 // Show Image
 eel.expose(showImage);
 function showImage(base64Image) {
+    const loader = document.getElementById("image-loading");
     const imageElement = document.getElementById("generated-image");
+    if (loader) loader.style.display = "none";
     if (imageElement) {
         imageElement.src = base64Image;
         imageElement.style.display = "block";
@@ -243,7 +254,9 @@ function showImage(base64Image) {
 // Hide Image
 eel.expose(hideImage);
 function hideImage() {
+    const loader = document.getElementById("image-loading");
     const imageElement = document.getElementById("generated-image");
+    if (loader) loader.style.display = "none";
     if (imageElement) {
         imageElement.style.display = "none";
     }

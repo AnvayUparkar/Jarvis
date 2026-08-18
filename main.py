@@ -49,6 +49,7 @@ from image import * # Ensure this import is active for generate_image_for_jarvis
 from token_store import *
 from answer_bot import answer_mcq_question # Import the answer_bot function
 import auth # Import auth to expose Eel endpoints
+from services.image_generator import ImageGenerator, enhance_image_prompt
 
 # === Wav2Lip Lip-Sync Service (Performance Optimized) ===
 try:
@@ -1909,25 +1910,62 @@ def read_notifications(window):
 
 import requests
 
-def generate_image_pollinations(prompt: str, save_path="assets/generated_pollinations_image.png"):
+def generate_image_pollinations(prompt, output_path=None):
+    """
+    Wrapper function replacing the old Pollinations image generation with
+    Hugging Face's hosted FLUX.1-schnell model with Gemini prompt enhancement.
+    """
     try:
-        from urllib.parse import quote
-        import requests
-
-        safe_prompt = quote(prompt)
-        url = f"https://image.pollinations.ai/prompt/{safe_prompt}"
-
-        response = requests.get(url)
-        if response.status_code == 200:
-            with open(save_path, "wb") as f:
-                f.write(response.content)
-            print(f"🌐 Pollinations image saved to {save_path}")
-            return save_path
-        else:
-            print("❌ Pollinations failed.")
+        # Check token configuration
+        if not os.getenv("HF_TOKEN"):
+            print("❌ Hugging Face token is not configured in .env")
+            speak("Hugging Face token is not configured. Please add HF_TOKEN to your dot env file.")
             return None
+
+        # 1. Trigger loading UI
+        try:
+            print("[IMAGE_GEN] Showing loading indicator in UI...")
+            eel.showImageLoading()()
+        except Exception as ui_err:
+            print(f"[IMAGE_GEN] Warning starting UI loader: {ui_err}")
+
+        # 2. Enhance Prompt via LLM
+        enhanced = enhance_image_prompt(prompt)
+
+        # 3. Generate Image
+        generator = ImageGenerator()
+        filepath = generator.generate(enhanced)
+        return filepath
+
+    except requests.exceptions.ConnectionError:
+        print("❌ Network Connection Error during Hugging Face API call.")
+        speak("I couldn't connect to the image generation service. Please check your internet connection and try again.")
+        try: eel.hideImage()()
+        except Exception: pass
+        return None
+    except ValueError as val_err:
+        print(f"❌ Configuration Error: {val_err}")
+        speak(str(val_err))
+        try: eel.hideImage()()
+        except Exception: pass
+        return None
     except Exception as e:
-        print("❌ Pollinations error:", e)
+        error_msg = str(e)
+        if "401" in error_msg or "Unauthorized" in error_msg or "Authorization" in error_msg:
+            print("❌ Authentication Error: Invalid Hugging Face Token.")
+            speak("I encountered an authentication error. Please verify that your Hugging Face access token is correct.")
+        elif "503" in error_msg or "unavailable" in error_msg or "busy" in error_msg:
+            print("❌ Model/Provider Unavailable Error.")
+            speak("The image generation service is temporarily unavailable. Please try again later.")
+        elif "timeout" in error_msg or "timed out" in error_msg:
+            print("❌ Timeout Error.")
+            speak("The image generation request timed out. Please try again with a shorter prompt.")
+        else:
+            print(f"❌ Image Generation Error: {e}")
+            speak("Sorry, I encountered an issue while generating the image.")
+        
+        try: eel.hideImage()()
+        except Exception: pass
         return None
 
 
@@ -1995,18 +2033,7 @@ def open_website(url):
     speak(f"Opening {url}")
     webbrowser.open(url)
 
-import requests
 
-def generate_image_pollinations(prompt, output_path="pollinations_output.jpg"):
-    url = f"https://image.pollinations.ai/prompt/{quote(prompt)}"
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(output_path, 'wb') as f:
-            f.write(response.content)
-        return output_path
-    else:
-        print(f"Pollinations error: {response.status_code}")
-        return None
 
 
 # --- WhatsApp and Contact Functions ---
