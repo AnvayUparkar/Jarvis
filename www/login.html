@@ -166,9 +166,12 @@ waitForEel(() => {
             eel.user_login(username, password)(async (res) => {
                 if (res && res.success) {
                     if (typeof eel.set_authenticated_user === 'function') {
-                        await eel.set_authenticated_user(res.user_name, res.user_email)();
+                        eel.set_authenticated_user(res.user_name, res.user_email)(() => {
+                            window.location.href = "home.html";
+                        });
+                    } else {
+                        window.location.href = "home.html";
                     }
-                    window.location.href = "home.html";
                 } else {
                     alert(res?.message || "Invalid credentials");
                 }

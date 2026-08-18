@@ -1214,13 +1214,13 @@
     function displayUserInfo(name, avatar) {
       userName.textContent = name || 'User';
       if (avatar) updateAvatarUI(avatar);
-      authLinks.style.display = 'none';
+      loginBtn.style.display = 'none';
       userInfo.style.display = 'flex';
     }
 
     // Hide user info and show login
     function hideUserInfo() {
-      authLinks.style.display = 'flex';
+      loginBtn.style.display = '';
       userInfo.style.display = 'none';
       userName.textContent = 'User';
     }
@@ -1295,32 +1295,32 @@
         hideUserInfo();
       }
     });
+  </script>
 
+  <!-- Avatar Modal -->
+  <div id="avatarModal" class="modal">
+    <div class="modal-content glass-panel" style="max-width: 350px;">
+      <span class="close" id="closeAvatarModal">&times;</span>
+      <h2>Select Avatar</h2>
 
-
-    <!-- Avatar Modal -->
-    <div id="avatarModal" class="modal">
-      <div class="modal-content glass-panel" style="max-width: 350px;">
-        <span class="close" id="closeAvatarModal">&times;</span>
-        <h2>Select Avatar</h2>
-
-        <div class="avatar-presets">
-          <div class="avatar-option" data-preset="fa-user-astronaut"><i class="fa-solid fa-user-astronaut"></i></div>
-          <div class="avatar-option" data-preset="fa-user-ninja"><i class="fa-solid fa-user-ninja"></i></div>
-          <div class="avatar-option" data-preset="fa-user-secret"><i class="fa-solid fa-user-secret"></i></div>
-          <div class="avatar-option" data-preset="fa-robot"><i class="fa-solid fa-robot"></i></div>
-        </div>
-
-        <div style="margin-top: 25px; text-align: center;">
-          <p style="margin-bottom: 10px;">Or upload your own:</p>
-          <input type="file" id="avatarUploadInput" accept="image/*" style="display: none;" />
-          <button id="avatarUploadBtn" class="submit-button" style="width: auto; padding: 10px 20px;">Upload Image</button>
-        </div>
-
-        <div id="avatarMessage" class="message" style="margin-top: 15px;"></div>
+      <div class="avatar-presets">
+        <div class="avatar-option" data-preset="fa-user-astronaut"><i class="fa-solid fa-user-astronaut"></i></div>
+        <div class="avatar-option" data-preset="fa-user-ninja"><i class="fa-solid fa-user-ninja"></i></div>
+        <div class="avatar-option" data-preset="fa-user-secret"><i class="fa-solid fa-user-secret"></i></div>
+        <div class="avatar-option" data-preset="fa-robot"><i class="fa-solid fa-robot"></i></div>
       </div>
-    </div>
 
+      <div style="margin-top: 25px; text-align: center;">
+        <p style="margin-bottom: 10px;">Or upload your own:</p>
+        <input type="file" id="avatarUploadInput" accept="image/*" style="display: none;" />
+        <button id="avatarUploadBtn" class="submit-button" style="width: auto; padding: 10px 20px;">Upload Image</button>
+      </div>
+
+      <div id="avatarMessage" class="message" style="margin-top: 15px;"></div>
+    </div>
+  </div>
+
+  <script>
     // ===== AVATAR LOGIC =====
     const avatarModal = document.getElementById('avatarModal');
     const closeAvatarModal = document.getElementById('closeAvatarModal');

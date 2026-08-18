@@ -413,7 +413,10 @@
   <!-- Navigation Bar -->
   <div class="navbar-top">
     <a href="index.html" class="navbar-brand">J.A.R.V.I.S</a>
-    <a href="#" id="goHomeLink" class="navbar-link">← Home</a>
+    <div style="display: flex; align-items: center; gap: 16px;">
+      <span id="navUserGreeting" style="display:none; color: #00ffff; font-weight: 700; font-size: 0.95rem; text-shadow: 0 0 8px rgba(0,255,255,0.5);"></span>
+      <a href="#" id="goHomeLink" class="navbar-link">← Home</a>
+    </div>
   </div>
   <script>
     // ===== FIXED NAVIGATION FUNCTIONALITY =====
@@ -431,6 +434,21 @@
           ev.preventDefault();
           navigateToPage('home.html');
         });
+      }
+
+      // Show logged-in user's name in the navbar
+      const navGreeting = document.getElementById('navUserGreeting');
+      if (typeof eel !== 'undefined') {
+        try {
+          eel.get_authenticated_user_info()(function (result) {
+            try {
+              if (result && result.authenticated && result.name) {
+                navGreeting.textContent = 'Hi, ' + result.name;
+                navGreeting.style.display = 'inline';
+              }
+            } catch (e) { console.error('User info callback error:', e); }
+          });
+        } catch (e) { console.error('eel.get_authenticated_user_info error:', e); }
       }
     });
   </script>
