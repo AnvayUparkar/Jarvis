@@ -348,6 +348,64 @@
       border-color: transparent;
       box-shadow: none;
     }
+
+    /* Shortcuts Panel & Tags */
+    .shortcuts-panel.show {
+      display: block !important;
+      transform: translateY(0) !important;
+      opacity: 1 !important;
+    }
+
+    .shortcut-tag {
+      background: rgba(0, 255, 255, 0.05) !important;
+      border: 1px solid rgba(0, 255, 255, 0.25) !important;
+      color: rgba(255, 255, 255, 0.9) !important;
+      border-radius: 20px !important;
+      padding: 6px 14px !important;
+      font-size: 0.85rem !important;
+      font-weight: 500 !important;
+      transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+      display: inline-flex !important;
+      align-items: center !important;
+      cursor: pointer !important;
+      outline: none !important;
+      text-decoration: none !important;
+    }
+
+    .shortcut-tag:hover {
+      background: rgba(0, 255, 255, 0.2) !important;
+      border-color: rgba(0, 255, 255, 0.7) !important;
+      color: #00ffff !important;
+      box-shadow: 0 0 12px rgba(0, 255, 255, 0.4) !important;
+      transform: translateY(-2px) !important;
+    }
+
+    .shortcut-tag:active {
+      transform: translateY(1px) !important;
+      box-shadow: 0 0 4px rgba(0, 255, 255, 0.2) !important;
+    }
+
+    .shortcuts-grid {
+      max-height: 200px;
+      overflow-y: auto;
+      padding-bottom: 5px;
+    }
+
+    /* Custom Scrollbar for Shortcuts Grid */
+    .shortcuts-grid::-webkit-scrollbar {
+      width: 6px;
+    }
+    .shortcuts-grid::-webkit-scrollbar-track {
+      background: rgba(255, 255, 255, 0.05);
+      border-radius: 10px;
+    }
+    .shortcuts-grid::-webkit-scrollbar-thumb {
+      background: rgba(0, 255, 255, 0.3);
+      border-radius: 10px;
+    }
+    .shortcuts-grid::-webkit-scrollbar-thumb:hover {
+      background: rgba(0, 255, 255, 0.5);
+    }
   </style>
 
   <!-- FaceMesh Overlay Styles -->
@@ -534,8 +592,56 @@
     </div>
 
     <!-- Unified Input Section -->
-    <div id="TextInput" class="d-flex justify-content-center w-100"
+    <div id="TextInput" class="d-flex flex-column align-items-center justify-content-center w-100"
       style="background: transparent; box-shadow: none; padding: 20px; position: fixed; bottom: 0; left: 0; z-index: 1000;">
+
+      <!-- Shortcuts Popover Panel -->
+      <div id="ShortcutsPanel" class="shortcuts-panel" style="display: none; width: 100%; max-width: 800px; background: rgba(20, 20, 20, 0.85); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid rgba(0, 255, 255, 0.3); border-radius: 16px; padding: 15px; margin-bottom: 12px; box-shadow: 0 8px 32px rgba(0, 255, 255, 0.15), inset 0 0 10px rgba(0, 255, 255, 0.05); transition: all 0.3s ease; transform: translateY(10px); opacity: 0; z-index: 1001;">
+        <!-- Header -->
+        <div class="d-flex justify-content-between align-items-center mb-3 pb-2 border-bottom border-secondary" style="border-color: rgba(255, 255, 255, 0.1) !important;">
+          <div class="d-flex align-items-center gap-2">
+            <i class="bi bi-lightning-charge-fill" style="color: #00ffff; text-shadow: 0 0 8px rgba(0, 255, 255, 0.6); font-size: 1.1rem;"></i>
+            <span style="font-family: 'Poppins', sans-serif; font-size: 0.95rem; font-weight: 700; color: #00ffff; letter-spacing: 0.5px; text-transform: uppercase;">Quick Shortcuts</span>
+          </div>
+          <button id="CloseShortcutsBtn" class="btn btn-sm btn-link p-0 text-secondary" style="font-size: 1.1rem; text-decoration: none;" type="button" title="Close Panel">
+            <i class="bi bi-x-lg"></i>
+          </button>
+        </div>
+        <!-- Grid of shortcuts -->
+        <div class="shortcuts-grid d-flex flex-wrap gap-2">
+          <button class="shortcut-tag btn" data-text="analyze marks">
+            <i class="bi bi-bar-chart-line-fill me-1"></i> analyze marks
+          </button>
+          <button class="shortcut-tag btn" data-text="generate a form">
+            <i class="bi bi-journal-text me-1"></i> generate a form
+          </button>
+          <button class="shortcut-tag btn" data-text="generate a mail about">
+            <i class="bi bi-envelope-fill me-1"></i> generate a mail about
+          </button>
+          <button class="shortcut-tag btn" data-text="generate presentation on">
+            <i class="bi bi-easel2-fill me-1"></i> generate presentation on
+          </button>
+          <button class="shortcut-tag btn" data-text="solve">
+            <i class="bi bi-patch-check-fill me-1"></i> solve
+          </button>
+          <button class="shortcut-tag btn" data-text="whatsapp call">
+            <i class="bi bi-whatsapp me-1"></i> whatsapp call
+          </button>
+          <button class="shortcut-tag btn" data-text="generate scenario assignment">
+            <i class="bi bi-clipboard-data-fill me-1"></i> generate scenario assignment
+          </button>
+          <button class="shortcut-tag btn" data-text="generate case study on">
+            <i class="bi bi-file-earmark-spreadsheet-fill me-1"></i> generate case study on
+          </button>
+          <button class="shortcut-tag btn" data-text="play">
+            <i class="bi bi-play-circle-fill me-1"></i> play
+          </button>
+          <button class="shortcut-tag btn" data-text="generate image">
+            <i class="bi bi-image-fill me-1"></i> generate image
+          </button>
+        </div>
+      </div>
+
       <div class="input-group-container d-flex flex-column w-100"
         style="max-width: 800px; background: rgba(30, 30, 30, 0.95); border: 1px solid rgba(255, 255, 255, 0.2); border-radius: 20px; padding: 10px; transition: border-color 0.3s; box-shadow: 0 4px 15px rgba(0,0,0,0.5);">
 
@@ -545,8 +651,15 @@
         </div>
 
         <div class="d-flex align-items-end gap-2">
+          <!-- Info Shortcuts Button -->
+          <button id="ShortcutsBtn" class="btn btn-link text-info p-0 ms-2 glow-on-hover"
+            style="font-size: 1.3rem; text-decoration: none; width: 40px; height: 40px; min-width: 40px;" type="button"
+            title="Shortcuts">
+            <i class="bi bi-info-circle-fill" style="font-size: 1.3rem; color: #00ffff; text-shadow: 0 0 10px rgba(0, 255, 255, 0.5);"></i>
+          </button>
+
           <!-- Attachment Button -->
-          <button id="AttachBtn" class="btn btn-link text-secondary p-0 ms-2 glow-on-hover"
+          <button id="AttachBtn" class="btn btn-link text-secondary p-0 glow-on-hover"
             style="font-size: 1.5rem; text-decoration: none; width: 40px; height: 40px;" type="button"
             title="Attach files">
             <i class="bi bi-paperclip"></i>

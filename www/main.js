@@ -128,6 +128,89 @@ document.addEventListener("DOMContentLoaded", function () {
         console.error("[INIT] ❌ Chatbox not found!");
     }
 
+    // 4. Shortcuts Panel Logic
+    const shortcutsBtn = document.getElementById("ShortcutsBtn");
+    const shortcutsPanel = document.getElementById("ShortcutsPanel");
+    const closeShortcutsBtn = document.getElementById("CloseShortcutsBtn");
+
+    if (shortcutsBtn && shortcutsPanel) {
+        shortcutsBtn.onclick = function (e) {
+            e.stopPropagation();
+            const isShowing = shortcutsPanel.classList.contains("show");
+            if (isShowing) {
+                shortcutsPanel.style.opacity = "0";
+                shortcutsPanel.style.transform = "translateY(10px)";
+                setTimeout(() => {
+                    shortcutsPanel.classList.remove("show");
+                }, 300);
+            } else {
+                shortcutsPanel.classList.add("show");
+                shortcutsPanel.offsetHeight; // force reflow
+                shortcutsPanel.style.opacity = "1";
+                shortcutsPanel.style.transform = "translateY(0)";
+            }
+        };
+        console.log("[INIT] ✅ ShortcutsBtn onclick attached");
+    }
+
+    if (closeShortcutsBtn && shortcutsPanel) {
+        closeShortcutsBtn.onclick = function (e) {
+            e.stopPropagation();
+            shortcutsPanel.style.opacity = "0";
+            shortcutsPanel.style.transform = "translateY(10px)";
+            setTimeout(() => {
+                shortcutsPanel.classList.remove("show");
+            }, 300);
+        };
+    }
+
+    // Hide shortcuts panel when clicking outside
+    document.addEventListener("click", function (e) {
+        if (shortcutsPanel && shortcutsPanel.classList.contains("show")) {
+            if (!shortcutsPanel.contains(e.target) && e.target !== shortcutsBtn) {
+                shortcutsPanel.style.opacity = "0";
+                shortcutsPanel.style.transform = "translateY(10px)";
+                setTimeout(() => {
+                    shortcutsPanel.classList.remove("show");
+                }, 300);
+            }
+        }
+    });
+
+    // Append text to chatbox and focus when shortcut is clicked
+    const shortcutTags = document.querySelectorAll(".shortcut-tag");
+    shortcutTags.forEach(tag => {
+        tag.addEventListener("click", function (e) {
+            e.preventDefault();
+            e.stopPropagation();
+            const textToAppend = this.getAttribute("data-text");
+            const chatboxEl = document.getElementById("chatbox");
+            if (chatboxEl && textToAppend) {
+                const currentVal = chatboxEl.value;
+                if (currentVal.trim() === "") {
+                    chatboxEl.value = textToAppend + " ";
+                } else {
+                    const lastChar = currentVal.slice(-1);
+                    if (lastChar !== " " && lastChar !== "\n") {
+                        chatboxEl.value += " ";
+                    }
+                    chatboxEl.value += textToAppend + " ";
+                }
+                chatboxEl.focus();
+                chatboxEl.dispatchEvent(new Event("input")); // trigger auto-resize
+            }
+
+            // Close the panel
+            if (shortcutsPanel) {
+                shortcutsPanel.style.opacity = "0";
+                shortcutsPanel.style.transform = "translateY(10px)";
+                setTimeout(() => {
+                    shortcutsPanel.classList.remove("show");
+                }, 300);
+            }
+        });
+    });
+
     console.log("[INIT] All event listeners attached successfully");
 });
 
