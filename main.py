@@ -42,6 +42,10 @@ from urllib.parse import quote
 import threading
 import eel
 import sys
+if hasattr(sys.stdout, 'reconfigure'):
+    sys.stdout.reconfigure(encoding='utf-8', errors='replace')
+if hasattr(sys.stderr, 'reconfigure'):
+    sys.stderr.reconfigure(encoding='utf-8', errors='replace')
 import queue # Import queue for multiprocessing.Queue
 import os
 from apikey import api_data # Import your API keys from apikey.py
@@ -955,7 +959,20 @@ class SpeechEngine:
 
             # Try gTTS first
             try:
-                tts = gTTS(text=text, lang='en', slow=False)
+                is_gujarati = any('\u0a80' <= char <= '\u0aff' for char in text)
+                is_tamil = any('\u0b80' <= char <= '\u0bff' for char in text)
+                is_devanagari = any('\u0900' <= char <= '\u097f' for char in text)
+                
+                if is_gujarati:
+                    tts_lang = 'gu'
+                elif is_tamil:
+                    tts_lang = 'ta'
+                elif is_devanagari:
+                    tts_lang = 'hi'
+                else:
+                    tts_lang = 'en'
+                    
+                tts = gTTS(text=text, lang=tts_lang, slow=False)
                 tts.save(filename)
                 
                 # === WAV2LIP LIP-SYNC INTEGRATION ===
@@ -1473,18 +1490,70 @@ def run_conversation_loop():
                 try:
                     original_timeout = socket.getdefaulttimeout()
                     socket.setdefaulttimeout(40)
-                    try:
-                        command = r.recognize_google(normalized_audio, language='en-IN')
-                    finally:
-                        socket.setdefaulttimeout(original_timeout)
                     
-                    command = command.strip()
+                    results = {}
+                    def recognize_lang(lang_code):
+                        try:
+                            results[lang_code] = r.recognize_google(normalized_audio, language=lang_code).strip()
+                        except Exception:
+                            results[lang_code] = ""
+
+                    target_languages = ['en-IN', 'hi-IN', 'gu-IN', 'mr-IN', 'ta-IN']
+                    threads = []
+                    for lang in target_languages:
+                        t = threading.Thread(target=recognize_lang, args=(lang,))
+                        threads.append(t)
+                        t.start()
+                        
+                    for t in threads:
+                        t.join()
+                    
+                    socket.setdefaulttimeout(original_timeout)
+                    
+                    text_en = results.get('en-IN', '')
+                    text_hi = results.get('hi-IN', '')
+                    text_gu = results.get('gu-IN', '')
+                    text_mr = results.get('mr-IN', '')
+                    text_ta = results.get('ta-IN', '')
+                    
+                    print(f"[STT] Raw English Result: \"{text_en}\" | Raw Hindi Result: \"{text_hi}\" | Raw Gujarati Result: \"{text_gu}\" | Raw Marathi Result: \"{text_mr}\" | Raw Tamil Result: \"{text_ta}\"")
+                    
+                    # Language selection rule
+                    has_gujarati = any('\u0a80' <= char <= '\u0aff' for char in text_gu)
+                    has_tamil = any('\u0b80' <= char <= '\u0bff' for char in text_ta)
+                    has_devanagari_mr = any('\u0900' <= char <= '\u097f' for char in text_mr)
+                    has_devanagari_hi = any('\u0900' <= char <= '\u097f' for char in text_hi)
+                    
+                    # Common Marathi words/markers/characters to distinguish from Hindi
+                    marathi_indicators = ["आहे", "आहेत", "का", "काय", "कсе", "कशी", "कसा", "तुम्ही", "आम्ही", "झाले", "गेले", "करून", "माझे", "माझा", "माझी", "तुझे", "पण", "करत", "होतो", "होती", "होते", "नाही", "मला", "तुला", "ळ"]
+                    is_explicit_marathi = any(word in text_mr.split() or word in text_mr for word in marathi_indicators)
+                    
+                    if text_mr and has_devanagari_mr and is_explicit_marathi:
+                        command = text_mr
+                        print(f"[STT] Language Detected: Marathi")
+                    elif text_hi and has_devanagari_hi:
+                        command = text_hi
+                        print(f"[STT] Language Detected: Hindi")
+                    elif text_mr and has_devanagari_mr:
+                        command = text_mr
+                        print(f"[STT] Language Detected: Marathi (Fallback)")
+                    elif text_gu and has_gujarati:
+                        command = text_gu
+                        print(f"[STT] Language Detected: Gujarati")
+                    elif text_ta and has_tamil:
+                        command = text_ta
+                        print(f"[STT] Language Detected: Tamil")
+                    else:
+                        command = text_en
+                        print(f"[STT] Language Detected: English")
+                    
+                    if not command:
+                        print("[STT] Empty transcription - ignoring")
+                        logging.info("[STT] Empty transcription - ignoring")
+                        continue
+                        
                     print(f"[STT] Result: \"{command}\"")
                     logging.info(f"[STT] Result: \"{command}\"")
-                except sr.UnknownValueError:
-                    print("[STT] Empty transcription - ignoring")
-                    logging.info("[STT] Empty transcription - ignoring")
-                    continue
                 except Exception as e:
                     print(f"[ERROR][STT] Speech recognition failed: {e}")
                     logging.error(f"[ERROR][STT] Speech recognition failed: {e}")

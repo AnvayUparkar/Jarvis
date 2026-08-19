@@ -132,8 +132,12 @@ def hotword(command_queue, conversation_mode_active):
                 # Unpack binary audio data into PCM samples
                 pcm = struct.unpack_from("h" * porcupine.frame_length, pcm_data)
                 
+                # Apply a digital gain multiplier to boost detection sensitivity (4.0x)
+                gain = 4.0
+                pcm_boosted = [int(max(-32768, min(32767, sample * gain))) for sample in pcm]
+                
                 # Process audio frame with Porcupine
-                keyword_index = porcupine.process(pcm)
+                keyword_index = porcupine.process(pcm_boosted)
                 
                 # Check if wake word was detected (keyword_index >= 0)
                 if keyword_index >= 0:
@@ -195,18 +199,40 @@ def hotword(command_queue, conversation_mode_active):
             
             last_activation_time = 0
             
+            # Active microphone stream reference
+            mic_opened = False
+            source = None
+            
             print("[🎙️ HOTWORD] Speech fallback listening for 'Jarvis'...")
             
             while True:
+                # If Conversation Mode is active, release the microphone
                 if conversation_mode_active.is_set():
+                    if mic_opened:
+                        print("[🎙️ HOTWORD] Pausing fallback listener (releasing microphone for Conversation Mode)")
+                        try:
+                            mic.__exit__(None, None, None)
+                        except Exception as e:
+                            print(f"[⚠️ HOTWORD] Error closing fallback mic: {e}")
+                        mic_opened = False
+                        source = None
                     time.sleep(0.5)
                     continue
 
+                # Reclaim microphone if Conversation Mode is no longer active
+                if not mic_opened:
+                    print("[🎙️ HOTWORD] Resuming fallback listener (reclaiming microphone)")
+                    try:
+                        source = mic.__enter__()
+                        mic_opened = True
+                    except Exception as e:
+                        print(f"[❌ HOTWORD] Error reclaiming fallback microphone: {e}")
+                        time.sleep(1.0)
+                        continue
+
                 try:
-                    # Enter/exit mic context inside loop to release the audio device dynamically
-                    with mic as source:
-                        # Use smart_listen for normalization and safety, skip calibration to prevent 1-second gaps
-                        audio = audio_engine.smart_listen(recognizer, source, timeout=1.0, phrase_time_limit=3.0, calibrate=False, quiet=True)
+                    # Use smart_listen for normalization and safety, skip calibration to prevent 1-second gaps
+                    audio = audio_engine.smart_listen(recognizer, source, timeout=1.0, phrase_time_limit=3.0, calibrate=False, quiet=True)
                     
                     text = recognizer.recognize_google(audio).lower()
                     if text:
@@ -232,6 +258,14 @@ def hotword(command_queue, conversation_mode_active):
                     continue
                 except Exception as ex:
                     print(f"[⚠️ HOTWORD] Fallback error: {ex}")
+                    # If it's a fatal stream error, reset mic_opened to trigger reclaim
+                    print("[🔄 HOTWORD] Resetting microphone stream due to error")
+                    try:
+                        mic.__exit__(None, None, None)
+                    except Exception:
+                        pass
+                    mic_opened = False
+                    source = None
                     time.sleep(1)
 
         except ImportError:
