@@ -18,20 +18,20 @@ import time
 # Imports are deferred to inside the process functions where they're needed.
 
 
-def startJarvis(command_queue):
+def startJarvis(command_queue, conversation_mode_active):
     """Process 1: Main Jarvis application with GUI and command processing"""
     print("\n" + "="*60)
     print("[🤖 JARVIS] Process 1 (Main Application) is starting...")
     print("="*60)
     try:
         from main import start
-        start(command_queue)  # Pass the queue for hotword activation signals
+        start(command_queue, conversation_mode_active)  # Pass the queue and the synchronization event
     except Exception as e:
         print(f"[❌ JARVIS] Fatal error in main Jarvis process: {e}")
         sys.exit(1)
 
 
-def listenHotword(command_queue):
+def listenHotword(command_queue, conversation_mode_active):
     """Process 2: Background hotword detection listener"""
     print("\n" + "="*60)
     print("[🎙️ HOTWORD] Process 2 (Hotword Listener) is starting...")
@@ -43,7 +43,7 @@ def listenHotword(command_queue):
         print("[🔊 HOTWORD] Initializing Porcupine for 'Jarvis' wake word detection...")
         
         # Start continuous hotword listening
-        hotword(command_queue)
+        hotword(command_queue, conversation_mode_active)
         
     except ImportError as e:
         print(f"[❌ HOTWORD] Import error: Could not import hotword module")
@@ -74,10 +74,14 @@ if __name__ == '__main__':
         command_queue = multiprocessing.Queue()
         print("[✅] IPC Queue created for hotword→main communication")
         
+        # Create inter-process event for Conversation Mode sync
+        conversation_mode_active = multiprocessing.Event()
+        print("[✅] IPC Event created for Conversation Mode synchronization")
+        
         # Create the processes
         print("[⚙️] Creating processes...")
-        p1 = multiprocessing.Process(target=startJarvis, args=(command_queue,), name="Jarvis-Main")
-        p2 = multiprocessing.Process(target=listenHotword, args=(command_queue,), name="Jarvis-Hotword")
+        p1 = multiprocessing.Process(target=startJarvis, args=(command_queue, conversation_mode_active), name="Jarvis-Main")
+        p2 = multiprocessing.Process(target=listenHotword, args=(command_queue, conversation_mode_active), name="Jarvis-Hotword")
         print(f"[✅] Process 1: {p1.name} (PID pending)")
         print(f"[✅] Process 2: {p2.name} (PID pending)")
         

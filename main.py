@@ -1,5 +1,8 @@
 # main.py (Integrated with direct image generation, Question Bot, and Agentic AI Scheduling Assistant)
+from dotenv import load_dotenv
+load_dotenv()
 import speech_recognition as sr
+import numpy as np
 import webbrowser
 import pyttsx3
 import requests
@@ -50,6 +53,10 @@ from token_store import *
 from answer_bot import answer_mcq_question # Import the answer_bot function
 import auth # Import auth to expose Eel endpoints
 from services.image_generator import ImageGenerator, enhance_image_prompt
+from mode_manager import ModeManager, JarvisMode, CONVERSATION_TIMEOUT, CONVERSATION_MAX_RESPONSE_TOKENS, CONVERSATION_BARGE_IN
+mode_manager = ModeManager()
+from audio_engine import AudioManager
+audio_manager = AudioManager()
 
 # === Wav2Lip Lip-Sync Service (Performance Optimized) ===
 try:
@@ -866,8 +873,41 @@ class SpeechEngine:
     def __init__(self):
         self.queue = queue.Queue()
         self.ended = False
+        self.stop_requested = False
+        self.lock = threading.Lock()
         self.thread = threading.Thread(target=self._run_loop, daemon=True, name="SpeechEngine")
         self.thread.start()
+
+    def stop(self):
+        with self.lock:
+            self.stop_requested = True
+            print("[BARGE-IN] stopping TTS")
+            logging.info("[BARGE-IN] stopping TTS")
+            try:
+                if pygame.mixer.get_init():
+                    pygame.mixer.music.stop()
+                    pygame.mixer.music.unload()
+            except Exception as e:
+                print(f"Error stopping pygame mixer: {e}")
+            try:
+                engine.stop()
+            except Exception as e:
+                print(f"Error stopping pyttsx3: {e}")
+            
+            # Discard any queued speech items
+            while not self.queue.empty():
+                try:
+                    self.queue.get_nowait()
+                    self.queue.task_done()
+                except queue.Empty:
+                    break
+                    
+            print("[BARGE-IN] TTS stopped")
+            logging.info("[BARGE-IN] TTS stopped")
+
+    def is_speaking(self):
+        global is_speaking
+        return is_speaking
         
     def _run_loop(self):
         print("[🔊 SPEECH] Engine started.")
@@ -891,7 +931,12 @@ class SpeechEngine:
                 
     def _speak_impl(self, text):
         global is_speaking
-        is_speaking = True
+        with self.lock:
+            if self.stop_requested:
+                return
+            is_speaking = True
+            print("[TTS] speaking")
+            logging.info("[TTS] speaking")
         filename = f"speech_{uuid.uuid4().hex}.mp3"
         lipsync_video = None
         
@@ -932,10 +977,13 @@ class SpeechEngine:
                 # =====================================
                 
                 # Play audio (either with video or standalone)
-                pygame.mixer.music.load(filename)
-                pygame.mixer.music.play()
-                while pygame.mixer.music.get_busy():
-                    pygame.time.Clock().tick(10)
+                if not self.stop_requested:
+                    pygame.mixer.music.load(filename)
+                    pygame.mixer.music.play()
+                    while pygame.mixer.music.get_busy():
+                        if self.stop_requested:
+                            break
+                        pygame.time.Clock().tick(10)
                 pygame.mixer.music.stop()
                 pygame.mixer.music.unload()
                 if os.path.exists(filename):
@@ -943,13 +991,16 @@ class SpeechEngine:
             except Exception as e:
                 print(f"[⚠️ SPEECH] gTTS error: {e}")
                 # Fallback to pyttsx3
-                engine.say(text)
-                engine.runAndWait()
+                if not self.stop_requested:
+                    engine.say(text)
+                    engine.runAndWait()
                 
         except Exception as e:
             print(f"[❌ SPEECH] TTS Error: {e}")
         finally:
             is_speaking = False
+            print("[TTS] finished")
+            logging.info("[TTS] finished")
             # --- [AVATAR SIGNAL] END ---
             try:
                 eel.signal_speech_end()
@@ -965,6 +1016,10 @@ class SpeechEngine:
         """
         print(f"Jarvis: {text}")
         
+        # Reset the stop request state so it can speak new requests
+        with self.lock:
+            self.stop_requested = False
+
         # Update UI immediately
         try:
             if hasattr(eel, 'DisplayMessage') and callable(eel.DisplayMessage):
@@ -1189,6 +1244,339 @@ def listen_for_response_answer(dynamic_pause_threshold=1.2): # Default reduced p
         return ""
 
 
+# --- Conversation Mode Interfaces & Implementation ---
+@eel.expose
+def enter_conversation_mode():
+    if mode_manager.enter_conversation_mode():
+        if conv_mode_active_event is not None:
+            conv_mode_active_event.set()
+        if not mode_manager.is_loop_running():
+            threading.Thread(target=run_conversation_loop, daemon=True).start()
+        try:
+            eel.updateModeUI("CONVERSATION_MODE")()
+        except Exception as e:
+            print(f"Error updating UI mode: {e}")
+        return True
+    return False
+
+@eel.expose
+def exit_conversation_mode():
+    if mode_manager.exit_conversation_mode():
+        if conv_mode_active_event is not None:
+            conv_mode_active_event.clear()
+        try:
+            eel.updateModeUI("TASK_MODE")()
+        except Exception as e:
+            print(f"Error updating UI mode: {e}")
+        return True
+    return False
+
+@eel.expose
+def is_conversation_mode():
+    return mode_manager.is_conversation_mode()
+
+@eel.expose
+def get_current_mode():
+    return mode_manager.get_current_mode().name
+
+
+
+def generate_conversation_response(history):
+    from conversation_providers import get_conversation_provider, parse_and_execute_tool_call
+    provider = get_conversation_provider()
+    response_text = provider.generate_response(history)
+    final_text = parse_and_execute_tool_call(response_text, command_executor, processCommand)
+    return final_text
+
+def run_conversation_loop():
+    if mode_manager.is_loop_running():
+        print("Conversation loop is already active. Skipping duplicate.")
+        return
+    
+    # 1. State: IDLE
+    state = "IDLE"
+    print("[MODE] TASK_MODE -> CONVERSATION_MODE")
+    logging.info("[MODE] TASK_MODE -> CONVERSATION_MODE")
+    
+    mode_manager.set_loop_running(True)
+    
+    # Expose and import VAD configurations
+    from mode_manager import (
+        VAD_SILENCE_DURATION, VAD_MIN_SPEECH_DURATION, VAD_MAX_SPEECH_DURATION, 
+        CONVERSATION_TIMEOUT, CONVERSATION_BARGE_IN
+    )
+    
+    # 2. State: Initializing microphone & calibrating
+    try:
+        audio_manager.initialize_mic()
+        print("[AUDIO] Microphone initialized")
+        logging.info("[AUDIO] Microphone initialized")
+        
+        # Calibrate once at session start
+        audio_manager.calibrate_ambient_noise(duration=1.0)
+        
+        # Open the stream
+        audio_manager.start_stream()
+        
+    except Exception as e:
+        print(f"[ERROR][AUDIO] Failed to initialize microphone: {e}")
+        logging.error(f"[ERROR][AUDIO] Failed to initialize microphone: {e}")
+        state = "ERROR"
+        exit_conversation_mode()
+        mode_manager.set_loop_running(False)
+        return
+
+    # Trigger initial greeting speech
+    speak("Sure, I'm listening.")
+    
+    try:
+        r = audio_engine.get_tuned_recognizer()
+        
+        while mode_manager.is_conversation_mode():
+            session = mode_manager.get_session()
+            if not session or not session.active:
+                break
+            
+            # Inactivity timeout guard
+            current_time = time.time()
+            if current_time - session.last_interaction_time > CONVERSATION_TIMEOUT:
+                print("Conversation timed out due to inactivity.")
+                speak("Conversation timed out. Returning to task mode.")
+                exit_conversation_mode()
+                break
+
+            # 3. State: LISTENING
+            state = "LISTENING"
+            print("[VAD] Waiting for speech")
+            logging.info("[VAD] Waiting for speech")
+            
+            # Clear/flush buffer before starting a fresh listen turn
+            audio_manager.clear_buffer()
+            
+            speech_frames = []
+            consecutive_speech_time = 0.0
+            consecutive_silence_time = 0.0
+            frame_duration = 1024 / 16000  # ~0.064s
+            
+            barge_in_occurred = False
+            
+            # VAD monitoring loop for this turn
+            while mode_manager.is_conversation_mode():
+                # Echo protection / ignoring mic input while speaking is True
+                global is_speaking
+                if is_speaking:
+                    if not CONVERSATION_BARGE_IN:
+                        # 4. State: SPEAKING (ignoring mic input completely)
+                        if state != "SPEAKING":
+                            state = "SPEAKING"
+                            print("[TTS] speaking")
+                            logging.info("[TTS] speaking")
+                        
+                        # Discard raw frames to empty device buffer
+                        try:
+                            audio_manager.clear_buffer()
+                        except:
+                            pass
+                        time.sleep(0.1)
+                        continue
+                
+                # If speaking was True and just became False, log finished and switch to LISTENING
+                if state == "SPEAKING" and not is_speaking:
+                    print("[TTS] finished")
+                    logging.info("[TTS] finished")
+                    print("[VAD] Listening again")
+                    logging.info("[VAD] Listening again")
+                    audio_manager.clear_buffer()
+                    state = "LISTENING"
+                    if session:
+                        session.touch()
+                
+                # Check inactivity timeout inside VAD loop as well
+                if time.time() - session.last_interaction_time > CONVERSATION_TIMEOUT:
+                    break
+
+                try:
+                    data = audio_manager.read_chunk()
+                except Exception as read_err:
+                    print(f"[ERROR][AUDIO] Read chunk failed: {read_err}")
+                    logging.error(f"[ERROR][AUDIO] Read chunk failed: {read_err}")
+                    time.sleep(0.05)
+                    continue
+
+                samples = np.frombuffer(data, dtype=np.int16).astype(np.float32)
+                if len(samples) == 0:
+                    continue
+
+                energy = np.sqrt(np.mean(samples**2))
+                threshold = audio_manager.energy_threshold
+
+                if state == "LISTENING":
+                    if energy > threshold:
+                        consecutive_speech_time += frame_duration
+                        if consecutive_speech_time >= VAD_MIN_SPEECH_DURATION:
+                            state = "RECORDING"
+                            print("[VAD] Speech detected")
+                            logging.info("[VAD] Speech detected")
+                            print("[AUDIO] Recording started")
+                            logging.info("[AUDIO] Recording started")
+                            
+                            # Interrupt TTS if speaking (Barge-In)
+                            if is_speaking and CONVERSATION_BARGE_IN:
+                                barge_in_occurred = True
+                                print("[BARGE-IN] detected")
+                                logging.info("[BARGE-IN] detected")
+                                speech_engine.stop()
+                            
+                            speech_frames = [data]
+                            consecutive_silence_time = 0.0
+                    else:
+                        consecutive_speech_time = 0.0
+                        
+                elif state == "RECORDING":
+                    speech_frames.append(data)
+                    total_duration = len(speech_frames) * frame_duration
+                    
+                    if total_duration >= VAD_MAX_SPEECH_DURATION:
+                        print("[VAD] Silence detected")
+                        logging.info("[VAD] Silence detected")
+                        print("[AUDIO] Recording stopped")
+                        logging.info("[AUDIO] Recording stopped")
+                        state = "TRANSCRIBING"
+                        break
+                        
+                    if energy < threshold:
+                        consecutive_silence_time += frame_duration
+                        if consecutive_silence_time >= VAD_SILENCE_DURATION:
+                            print("[VAD] Silence detected")
+                            logging.info("[VAD] Silence detected")
+                            print("[AUDIO] Recording stopped")
+                            logging.info("[AUDIO] Recording stopped")
+                            state = "TRANSCRIBING"
+                            break
+                    else:
+                        consecutive_silence_time = 0.0
+                        
+                time.sleep(0.01)
+
+            # Check if Conversation Mode was disabled or timed out
+            if not mode_manager.is_conversation_mode():
+                break
+
+            # 5. State: TRANSCRIBING
+            if state == "TRANSCRIBING" and speech_frames:
+                print("[STT] Processing audio")
+                logging.info("[STT] Processing audio")
+                
+                audio_data = sr.AudioData(b"".join(speech_frames), 16000, 2)
+                normalized_audio = audio_engine.normalize_audio(audio_data, quiet=True)
+                
+                try:
+                    original_timeout = socket.getdefaulttimeout()
+                    socket.setdefaulttimeout(40)
+                    try:
+                        command = r.recognize_google(normalized_audio, language='en-IN')
+                    finally:
+                        socket.setdefaulttimeout(original_timeout)
+                    
+                    command = command.strip()
+                    print(f"[STT] Result: \"{command}\"")
+                    logging.info(f"[STT] Result: \"{command}\"")
+                except sr.UnknownValueError:
+                    print("[STT] Empty transcription - ignoring")
+                    logging.info("[STT] Empty transcription - ignoring")
+                    continue
+                except Exception as e:
+                    print(f"[ERROR][STT] Speech recognition failed: {e}")
+                    logging.error(f"[ERROR][STT] Speech recognition failed: {e}")
+                    continue
+
+                # Intercept exit commands directly at Conversation Mode controller
+                exit_phrases = ["exit conversation mode", "stop conversation", "go back to task mode", "exit", "sleep"]
+                if any(phrase in command.lower() for phrase in exit_phrases):
+                    state = "STOPPING"
+                    print("[BARGE-IN] stopping TTS")
+                    logging.info("[BARGE-IN] stopping TTS")
+                    speech_engine.stop()
+                    print("[BARGE-IN] TTS stopped")
+                    logging.info("[BARGE-IN] TTS stopped")
+                    
+                    exit_conversation_mode()
+                    
+                    if "sleep" in command.lower():
+                        global SLEEP_MODE, jarvis_active, is_listening
+                        jarvis_active = False
+                        is_listening = False
+                        SLEEP_MODE = True
+                        speak("Okay, going to sleep.")
+                        eel.HideSiriWave()
+                        eel.DisplayMessage("Jarvis is sleeping. Say 'Jarvis' to wake me up.")
+                    else:
+                        speak("Returned to task mode.")
+                    break
+
+                # Valid transcription, update session and history
+                if session:
+                    session.touch()
+                
+                if barge_in_occurred:
+                    print("[BARGE-IN] processing user input")
+                    logging.info("[BARGE-IN] processing user input")
+                    
+                print(f"[CONVERSATION] User: {command}")
+                logging.info(f"[CONVERSATION] User: {command}")
+                
+                eel.DisplayMessage(f"🎙️ You: {command}")
+                eel.appendUserMessage(command)
+                mode_manager.add_message("user", command)
+
+                # 6. State: THINKING (LLM)
+                state = "THINKING"
+                print("[LLM] Processing request")
+                logging.info("[LLM] Processing request")
+                
+                try:
+                    eel.ShowTyping()
+                    response_text = generate_conversation_response(mode_manager.get_history())
+                    response_text = response_text.replace('*', '').strip()
+                    print("[LLM] Response received")
+                    logging.info("[LLM] Response received")
+                except Exception as llm_err:
+                    print(f"[ERROR][LLM] request failed: {llm_err}")
+                    logging.error(f"[ERROR][LLM] request failed: {llm_err}")
+                    speak("I had trouble processing that. Can you please repeat?")
+                    continue
+                
+                # Log conversational response
+                print(f"[CONVERSATION] response: {response_text}")
+                logging.info(f"[CONVERSATION] response: {response_text}")
+                
+                # Add response to history
+                mode_manager.add_message("model", response_text)
+                
+                # 7. State: SPEAKING (enqueue TTS)
+                state = "SPEAKING"
+                print("[TTS] speaking")
+                logging.info("[TTS] speaking")
+                
+                try:
+                    speak(response_text)
+                except Exception as tts_err:
+                    print(f"[ERROR][TTS] Speech failed: {tts_err}")
+                    logging.error(f"[ERROR][TTS] Speech failed: {tts_err}")
+                    
+    except Exception as loop_err:
+        print(f"[ERROR] Fatal exception in run_conversation_loop: {loop_err}")
+        logging.error(f"[ERROR] Fatal exception in run_conversation_loop: {loop_err}")
+        state = "ERROR"
+        exit_conversation_mode()
+    finally:
+        # 8. State: STOPPING / cleanup
+        audio_manager.stop_stream()
+        mode_manager.set_loop_running(False)
+        print("Conversation loop ended.")
+        logging.info("Conversation loop ended.")
+
+
 # In listen_from_frontend, do not require manual trigger; listen continuously for wake word
 @eel.expose
 def continous_listen_loop():
@@ -1209,6 +1597,10 @@ def continous_listen_loop():
 
     try:
         while True:
+            if mode_manager.is_conversation_mode():
+                time.sleep(0.5)
+                continue
+
             # If Jarvis is currently speaking, pause the listening loop
             while is_speaking:
                 time.sleep(0.1) # Small delay to avoid busy-waiting while speaking
@@ -3327,6 +3719,8 @@ def schedule_auto_sleep():
     Schedules Jarvis to enter sleep mode 5 seconds after command execution.
     """
     global SLEEP_MODE
+    if mode_manager.is_conversation_mode():
+        return
     def enter_sleep():
         global SLEEP_MODE
         SLEEP_MODE = True
@@ -3350,6 +3744,11 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
     print(f"Processing command: {command}")
     logging.info(f"Command received: {command}")
     eel.HideTyping()
+
+    # --- CONVERSATION MODE ---
+    if "enter conversation mode" in command or "conversation mode" in command:
+        enter_conversation_mode()
+        return
 
     # --- TEAMS INTEGRATION ---
     if "analyze teams assignments" in command or "review teams assignments" in command:
@@ -4138,6 +4537,10 @@ def listen_from_frontend():
     eel.DisplayMessage("🎤 Listening for 'Jarvis'...")
 
     while jarvis_active:
+        if mode_manager.is_conversation_mode():
+            time.sleep(0.5)
+            continue
+            
         while is_speaking:
             time.sleep(0.1)
 
@@ -4192,6 +4595,9 @@ def hotword_listener_thread(q):
     
     while True:
         watchdog.touch("HotwordListener")
+        if mode_manager.is_conversation_mode():
+            time.sleep(0.5)
+            continue
         try:
             # Wait for activation signal from hotword detection process
             message = q.get(timeout=1)
@@ -4245,9 +4651,13 @@ def hotword_listener_thread(q):
         time.sleep(0.1)
 
 
-def start(command_queue):
-    global hotword_queue
+conv_mode_active_event = None
+
+
+def start(command_queue, conversation_mode_active):
+    global hotword_queue, conv_mode_active_event
     hotword_queue = command_queue
+    conv_mode_active_event = conversation_mode_active
     
     # Initialize Wav2Lip engine in background (Main Process only)
     if WAV2LIP_AVAILABLE:

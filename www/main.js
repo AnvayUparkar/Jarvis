@@ -211,6 +211,34 @@ document.addEventListener("DOMContentLoaded", function () {
         });
     });
 
+    // 5. Navbar Mode Toggle Switch
+    const modeToggle = document.getElementById("modeToggleCheckbox");
+    if (modeToggle) {
+        modeToggle.addEventListener("change", function () {
+            if (typeof eel !== "undefined") {
+                if (this.checked) {
+                    eel.enter_conversation_mode()(function (success) {
+                        if (success) {
+                            console.log("Successfully transitioned to Conversation Mode via switch.");
+                        } else {
+                            console.warn("Failed to enter Conversation Mode via switch.");
+                            modeToggle.checked = false;
+                        }
+                    });
+                } else {
+                    eel.exit_conversation_mode()(function (success) {
+                        if (success) {
+                            console.log("Successfully transitioned back to Task Mode via switch.");
+                        } else {
+                            console.warn("Failed to exit Conversation Mode via switch.");
+                            modeToggle.checked = true;
+                        }
+                    });
+                }
+            }
+        });
+    }
+
     console.log("[INIT] All event listeners attached successfully");
 });
 
@@ -252,7 +280,24 @@ window.removeAttachedFile = function (index) {
 };
 
 
-// === EXPOSED JS FUNCTIONS FOR PYTHON TO CALL ===
+eel.expose(updateModeUI);
+function updateModeUI(modeName) {
+    const checkbox = document.getElementById("modeToggleCheckbox");
+    const label = document.getElementById("modeLabel");
+    if (!checkbox || !label) return;
+    
+    if (modeName === "CONVERSATION_MODE") {
+        checkbox.checked = true;
+        label.textContent = "Conversation";
+        label.style.color = "#00ffff";
+        label.style.textShadow = "0 0 8px rgba(0, 255, 255, 0.5)";
+    } else {
+        checkbox.checked = false;
+        label.textContent = "Task Mode";
+        label.style.color = "rgba(255, 255, 255, 0.6)";
+        label.style.textShadow = "none";
+    }
+}
 
 eel.expose(DisplayMessage);
 function DisplayMessage(text) {

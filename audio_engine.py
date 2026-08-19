@@ -5,6 +5,8 @@ dynamic threshold capping, and anti-infinite-loop safeguards.
 """
 
 import speech_recognition as sr
+import pyaudio
+import threading
 import time
 import math
 import struct
@@ -138,3 +140,114 @@ def smart_listen(recognizer, source, timeout=15, phrase_time_limit=15, calibrate
     
     # Normalize volume before returning
     return normalize_audio(audio_data, quiet=quiet)
+
+
+class AudioManager:
+    def __init__(self):
+        self.pa = None
+        self.stream = None
+        self.lock = threading.Lock()
+        self.energy_threshold = 300
+        self.calibrated = False
+        
+        # Centralized configurations
+        self.MIC_CALIBRATION_DURATION = 1.0
+        self.MIC_ENERGY_THRESHOLD_DEFAULT = 300
+        self.MIC_DYNAMIC_ENERGY = True
+        self.MIC_TIMEOUT = 5
+        self.MIC_PHRASE_TIME_LIMIT = 15
+
+    def initialize_mic(self):
+        """Initializes PyAudio interface once."""
+        with self.lock:
+            if not self.pa:
+                print("[AUDIO] Initializing microphone")
+                self.pa = pyaudio.PyAudio()
+                print("[AUDIO] Microphone initialized")
+
+    def start_stream(self):
+        """Opens and starts PyAudio input stream."""
+        self.initialize_mic()
+        with self.lock:
+            if not self.stream:
+                print("[AUDIO] Opening microphone stream...")
+                self.stream = self.pa.open(
+                    format=pyaudio.paInt16,
+                    channels=1,
+                    rate=16000,
+                    input=True,
+                    frames_per_buffer=1024
+                )
+                print("[AUDIO] Microphone stream opened successfully.")
+
+    def stop_stream(self):
+        """Stops and closes PyAudio input stream cleanly."""
+        with self.lock:
+            if self.stream:
+                print("[AUDIO] Releasing microphone stream...")
+                try:
+                    self.stream.stop_stream()
+                    self.stream.close()
+                except Exception as e:
+                    print(f"[AUDIO] Error stopping stream: {e}")
+                self.stream = None
+                print("[AUDIO] Microphone stream released.")
+
+    def clear_buffer(self):
+        """Discards any stale frames in the stream buffer."""
+        with self.lock:
+            if self.stream:
+                try:
+                    available = self.stream.get_read_available()
+                    if available > 0:
+                        self.stream.read(available, exception_on_overflow=False)
+                except Exception as e:
+                    print(f"[AUDIO] Error clearing stream buffer: {e}")
+
+    def calibrate_ambient_noise(self, duration=1.0):
+        """Calibrates baseline energy threshold once based on ambient room noise."""
+        self.start_stream()
+        print(f"[AUDIO] Starting ambient noise calibration for {duration}s...")
+        
+        # Read frames for duration and find average energy
+        num_frames = int(16000 / 1024 * duration)
+        energies = []
+        
+        for _ in range(num_frames):
+            try:
+                data = self.stream.read(1024, exception_on_overflow=False)
+                samples = np.frombuffer(data, dtype=np.int16).astype(np.float32)
+                if len(samples) > 0:
+                    energy = np.sqrt(np.mean(samples**2))
+                    energies.append(energy)
+            except Exception as e:
+                pass
+            time.sleep(0.01)
+            
+        if energies:
+            avg_energy = sum(energies) / len(energies)
+            # Energy trigger is typically 1.5 - 2.0x average ambient noise
+            self.energy_threshold = max(avg_energy * 1.8, 150.0)
+            self.energy_threshold = min(self.energy_threshold, 1500.0)  # cap at 1500
+            self.calibrated = True
+            print(f"[AUDIO] Ambient noise calibration complete. Threshold set to: {self.energy_threshold:.2f}")
+        else:
+            self.energy_threshold = self.MIC_ENERGY_THRESHOLD_DEFAULT
+            print(f"[AUDIO] Calibration failed. Using default energy threshold: {self.energy_threshold}")
+
+    def read_chunk(self):
+        """Reads a chunk of raw audio frames."""
+        if not self.stream:
+            self.start_stream()
+        return self.stream.read(1024, exception_on_overflow=False)
+
+    def close(self):
+        """Releases all PyAudio resources completely."""
+        self.stop_stream()
+        with self.lock:
+            if self.pa:
+                print("[AUDIO] Closing PyAudio interface...")
+                self.pa.terminate()
+                self.pa = None
+                print("[AUDIO] PyAudio interface closed.")
+

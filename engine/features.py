@@ -38,12 +38,13 @@ PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy
 COOLDOWN_SECONDS = 1.2  # Cooldown after activation to prevent false retriggers
 
 
-def hotword(command_queue):
+def hotword(command_queue, conversation_mode_active):
     """
     Continuous hotword detection listener for "Hello Mirage" wake word.
     
     Args:
         command_queue: multiprocessing.Queue for sending activation signals to main process
+        conversation_mode_active: multiprocessing.Event to synchronize microphone access
         
     This function:
     - Initializes Porcupine with the Hello Mirage model
@@ -94,6 +95,36 @@ def hotword(command_queue):
         
         # Main listening loop
         while True:
+            # Check if Conversation Mode is active, and if so release the mic
+            if conversation_mode_active.is_set():
+                if audio_stream is not None:
+                    print("[🎙️ HOTWORD] Pausing hotword listener (releasing microphone for Conversation Mode)")
+                    try:
+                        audio_stream.stop_stream()
+                        audio_stream.close()
+                    except Exception as e:
+                        print(f"[⚠️ HOTWORD] Error closing audio stream: {e}")
+                    audio_stream = None
+                time.sleep(0.5)
+                continue
+
+            # Reclaim microphone if Conversation Mode is no longer active
+            if audio_stream is None:
+                print("[🎙️ HOTWORD] Resuming hotword listener (reclaiming microphone)")
+                try:
+                    audio_stream = pa.open(
+                        rate=porcupine.sample_rate,
+                        channels=1,
+                        format=pyaudio.paInt16,
+                        input=True,
+                        frames_per_buffer=porcupine.frame_length,
+                        input_device_index=None
+                    )
+                except Exception as e:
+                    print(f"[❌ HOTWORD] Error reclaiming microphone: {e}")
+                    time.sleep(1.0)
+                    continue
+
             try:
                 # Read audio frame from microphone
                 pcm_data = audio_stream.read(porcupine.frame_length, exception_on_overflow=False)
@@ -164,41 +195,44 @@ def hotword(command_queue):
             
             last_activation_time = 0
             
-            with mic as source:
-                print("[🎙️ HOTWORD] Initial calibration...")
-                recognizer.adjust_for_ambient_noise(source, duration=1.0)
-                print("[🎙️ HOTWORD] Speech fallback listening for 'Jarvis'...")
-                
-                while True:
-                    try:
+            print("[🎙️ HOTWORD] Speech fallback listening for 'Jarvis'...")
+            
+            while True:
+                if conversation_mode_active.is_set():
+                    time.sleep(0.5)
+                    continue
+
+                try:
+                    # Enter/exit mic context inside loop to release the audio device dynamically
+                    with mic as source:
                         # Use smart_listen for normalization and safety, skip calibration to prevent 1-second gaps
                         audio = audio_engine.smart_listen(recognizer, source, timeout=1.0, phrase_time_limit=3.0, calibrate=False, quiet=True)
-                        
-                        text = recognizer.recognize_google(audio).lower()
-                        if text:
-                            print(f"[🎙️ HOTWORD] Heard: {text}")
-                        
-                        if any(trigger in text for trigger in triggers):
-                            current_time = time.time()
-                            if current_time - last_activation_time >= COOLDOWN_SECONDS:
-                                print(f"\n[🔊 HOTWORD] ✨ Wake word DETECTED (Fallback: '{text}')! Activating...")
-                                try:
-                                    command_queue.put("activate_mirage", timeout=1)
-                                    print(f"[📤 HOTWORD] Activation signal sent to main process")
-                                except queue.Full:
-                                    print(f"[⚠️ HOTWORD] Queue is full, activation signal not sent")
-                                last_activation_time = current_time
-                                time.sleep(0.5)
-                    except sr.UnknownValueError:
-                        pass
-                    except sr.RequestError:
-                        print("[⚠️ HOTWORD] Network error in fallback. Retrying...")
-                        time.sleep(1)
-                    except sr.WaitTimeoutError:
-                        continue
-                    except Exception as ex:
-                        print(f"[⚠️ HOTWORD] Fallback error: {ex}")
-                        time.sleep(1)
+                    
+                    text = recognizer.recognize_google(audio).lower()
+                    if text:
+                        print(f"[🎙️ HOTWORD] Heard: {text}")
+                    
+                    if any(trigger in text for trigger in triggers):
+                        current_time = time.time()
+                        if current_time - last_activation_time >= COOLDOWN_SECONDS:
+                            print(f"\n[🔊 HOTWORD] ✨ Wake word DETECTED (Fallback: '{text}')! Activating...")
+                            try:
+                                command_queue.put("activate_mirage", timeout=1)
+                                print(f"[📤 HOTWORD] Activation signal sent to main process")
+                            except queue.Full:
+                                print(f"[⚠️ HOTWORD] Queue is full, activation signal not sent")
+                            last_activation_time = current_time
+                            time.sleep(0.5)
+                except sr.UnknownValueError:
+                    pass
+                except sr.RequestError:
+                    print("[⚠️ HOTWORD] Network error in fallback. Retrying...")
+                    time.sleep(1)
+                except sr.WaitTimeoutError:
+                    continue
+                except Exception as ex:
+                    print(f"[⚠️ HOTWORD] Fallback error: {ex}")
+                    time.sleep(1)
 
         except ImportError:
             print("[❌ HOTWORD] SpeechRecognition module not found for fallback. Please run: pip install SpeechRecognition")
