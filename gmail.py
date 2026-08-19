@@ -22,15 +22,18 @@ except Exception as e:
     print(f"❌ Gemini configuration failed: {e}")
 
 # Generate email body using Gemini (no recipient in prompt)
-def generate_email_body_with_gemini(subject: str, context: str = "", speak_func=None):
+def generate_email_body_with_gemini(subject: str, context: str = "", speak_func=None, sender_name: str = None):
     if speak_func is None:
         speak_func = speak_placeholder
+
+    signature_instruction = f"Sign the email with the name '{sender_name}'." if sender_name else "If signing the email, use '[Your Name]' or a suitable placeholder."
 
     prompt = f"""
     Write a polite and professional email.
     Subject: {subject}
     Context: {context if context else 'No specific context provided.'}
     Avoid addressing the recipient directly.
+    {signature_instruction}
     Just return the email body only.
     """
 
@@ -38,13 +41,22 @@ def generate_email_body_with_gemini(subject: str, context: str = "", speak_func=
     print(f"🧠 Gemini generating email body for: {subject}")
 
     try:
+        import re
         model = google_ai.GenerativeModel("gemini-2.5-flash-lite")
         response = model.generate_content(prompt)
-        return response.text.strip()
+        body = response.text.strip()
+        
+        if sender_name:
+            # Replace common placeholders with the actual sender's name
+            body = re.sub(r'\[Your\s*Name\]', sender_name, body, flags=re.IGNORECASE)
+            body = re.sub(r'\[Sender\'?s?\s*Name\]', sender_name, body, flags=re.IGNORECASE)
+            
+        return body
     except Exception as e:
         speak_func("AI couldn't generate the email content.")
         print(f"❌ Gemini error while generating email: {e}")
-        return "Hi,\n\n[Email content could not be generated. Please try again later.]\n\nRegards."
+        fallback_signature = f"\n\nRegards,\n{sender_name}" if sender_name else "\n\nRegards."
+        return f"Hi,\n\n[Email content could not be generated. Please try again later.]{fallback_signature}"
 
 # Send email using Gmail API
 def send_email(subject: str, recipient: str, body_text: str, get_credentials_func=None, speak_func=None):

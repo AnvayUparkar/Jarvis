@@ -3584,8 +3584,17 @@ def processCommand(c, source_input_text=None): # Added source_input_text paramet
 
         speak(f"Drafting an email about {email_topic}...")
         try:
+            # Retrieve current logged-in user name if authenticated
+            user_name = None
+            try:
+                import auth
+                if auth.current_session.get("authenticated"):
+                    user_name = auth.current_session.get("username")
+            except Exception as auth_err:
+                print(f"⚠️ Error accessing auth session for user name: {auth_err}")
+
             # Generate email body using Gemini
-            body = generate_email_body_with_gemini(subject=email_topic, context="", speak_func=speak)
+            body = generate_email_body_with_gemini(subject=email_topic, context="", speak_func=speak, sender_name=user_name)
             subject = email_topic
 
             if body:
