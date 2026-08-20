@@ -29,10 +29,33 @@ except ImportError:
     PORCUPINE_ACCESS_KEY = None
 
 # Path to Porcupine model file (.ppn)
-# Using the full path to the Jarvis model included in the repository
-# Path to Porcupine model file (.ppn)
-# Using the "Jarvis" wake word model (v4.0.0 compatible with pvporcupine library)
-PORCUPINE_MODEL_PATH = r"C:\Users\Anvay Uparkar\Hackathon projects\JARVIS - Copy\Jarvis\Jarvis_en_windows_v4_0_0.ppn"
+# Using the "Jarvis" wake word model - first try built-in pvporcupine resources,
+# then fall back to a custom .ppn in the project root.
+_ENGINE_DIR = os.path.dirname(os.path.abspath(__file__))
+_PROJECT_ROOT = os.path.dirname(_ENGINE_DIR)
+
+def _resolve_ppn_path():
+    """Resolve the best available .ppn keyword file path."""
+    # 1. Custom v4 file in project root (highest priority)
+    custom = os.path.join(_PROJECT_ROOT, "Jarvis_en_windows_v4_0_0.ppn")
+    if os.path.exists(custom):
+        return custom
+
+    # 2. Built-in 'jarvis_windows.ppn' shipped inside pvporcupine package
+    try:
+        import pvporcupine
+        pkg_dir = os.path.dirname(os.path.abspath(pvporcupine.__file__))
+        builtin = os.path.join(pkg_dir, "resources", "keyword_files", "windows", "jarvis_windows.ppn")
+        if os.path.exists(builtin):
+            print(f"[🎙️ HOTWORD] Using built-in pvporcupine keyword: {builtin}")
+            return builtin
+    except Exception:
+        pass
+
+    # 3. Fallback to custom path (will fail with clear error if missing)
+    return custom
+
+PORCUPINE_MODEL_PATH = _resolve_ppn_path()
 
 # Configuration
 COOLDOWN_SECONDS = 1.2  # Cooldown after activation to prevent false retriggers

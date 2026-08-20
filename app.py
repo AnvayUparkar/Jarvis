@@ -7,7 +7,9 @@ import sys # For exiting the application
 # This tells Eel where to find your web files (HTML, CSS, JS).
 # '.' means the current directory where app.py resides.
 # If your web files were in a subfolder like 'web', you would use eel.init('web').
-eel.init(r'C:\Users\Anvay Uparkar\Python\JARVIS\www')
+import os
+PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+eel.init(os.path.join(PROJECT_ROOT, 'www'))
 
 # --- 2. Expose Python Functions to JavaScript ---
 # Use @eel.expose decorator above any Python function you want to call from JavaScript.

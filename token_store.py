@@ -97,7 +97,8 @@ def authenticate_and_save_token():
     """
     SCOPES = ["https://www.googleapis.com/auth/contacts.readonly"]
     # Ensure the client_secrets.json path is correct for your system
-    CLIENT_SECRET_PATH = r"C:\Users\Anvay Uparkar\Python\JARVIS\client_secret_133871116699-teh8o91k85noal3nid1tkr1o6j3kbfce.apps.googleusercontent.com.json"
+    PROJECT_ROOT = os.path.dirname(os.path.abspath(__file__))
+    CLIENT_SECRET_PATH = os.path.join(PROJECT_ROOT, "client_secret_133871116699-teh8o91k85noal3nid1tkr1o6j3kbfce.apps.googleusercontent.com.json")
 
     if not os.path.exists(CLIENT_SECRET_PATH):
         print(f"ERROR: Client secret file not found at {CLIENT_SECRET_PATH}")
