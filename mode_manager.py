@@ -14,7 +14,7 @@ logger = logging.getLogger("JarvisModeManager")
 
 # Configurable settings
 CONVERSATION_MAX_HISTORY = 10          # Maximum message history turns (1 turn = user + model)
-CONVERSATION_TIMEOUT = 30              # Inactivity timeout in seconds
+CONVERSATION_TIMEOUT = 60              # Inactivity timeout in seconds
 CONVERSATION_MAX_RESPONSE_TOKENS = 150  # Maximum output tokens for LLM generation
 CONVERSATION_BARGE_IN = True            # Enable user barge-in during speech synthesis
 
