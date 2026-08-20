@@ -134,3 +134,14 @@ zope.event==5.1.1
 zope.interface==7.2
 pvporcupine
 huggingface_hub
+pymongo==4.17.0
+dnspython==2.8.0
+bcrypt==5.0.0
+websockets==16.0
+openai==1.75.0
+PyMuPDF==1.26.3
+librosa==1.0.0
+numba==0.67.0
+scipy==1.16.0
+torch==2.7.1
+opencv-python==4.12.0.88
