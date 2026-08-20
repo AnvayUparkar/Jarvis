@@ -7,13 +7,32 @@ import os
 _original_generate_content = genai.GenerativeModel.generate_content
 
 # The preferred sequence of models to try
+'''
 FALLBACK_MODELS = [
     "gemini-2.5-flash-lite",
     "gemini-2.5-flash",
     "gemini-2.5-pro",
     "gemini-flash-latest",
-    "gemini-pro-latest"
+    "gemini-pro-latest",
+    "gemini-3-pro-preview",
+    "gemini-3.1-flash-lite"
+    
+]'''
+
+
+FALLBACK_MODELS = [
+    "gemini-3.7-flash",           # Latest stable model; optimal balance of speed and intelligence
+    "gemini-3.5-flash-lite",      # Ultra-fast, high-volume model for quick tasks
+    "gemini-3.1-pro-preview",     # Advanced model for complex reasoning and deep content generation
+    "gemini-3.1-flash-lite",      # Legacy highly efficient fallback
+    "gemini-3-pro-preview",       # Legacy advanced fallback
+    "gemini-2.5-flash",           # Legacy flash fallback
+    "gemini-2.5-flash-lite",      # Legacy fast fallback
+    "gemini-2.5-pro",             # Legacy pro fallback
+    "gemini-flash-latest",        # Dynamic pointer to the latest flash model
+    "gemini-pro-latest"           # Dynamic pointer to the latest pro model
 ]
+
 
 def _generate_content_with_fallback(self, *args, **kwargs):
     """
